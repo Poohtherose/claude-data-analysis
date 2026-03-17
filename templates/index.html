@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>SPSS ANOVA 统计分析平台</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-cyan: #00d4ff;
+            --primary-blue: #0099cc;
+            --deep-blue: #0066aa;
+            --light-cyan: #e6f9ff;
+            --accent-teal: #00b8d4;
+            --bg-gradient-start: #f0fbff;
+            --bg-gradient-end: #e0f7fa;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-primary: #1a365d;
+            --text-secondary: #4a6fa5;
+            --border-color: #b3e5fc;
+            --success-color: #00c853;
+            --warning-color: #ff9100;
+            --error-color: #ff1744;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* 背景装饰 */
+        .bg-decoration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-decoration::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .bg-decoration::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 153, 204, 0.12) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        /* 导航栏 */
+        .navbar {
+            background: linear-gradient(135deg, var(--deep-blue) 0%, var(--primary-blue) 100%);
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 20px rgba(0, 102, 170, 0.3);
+            position: relative;
+            z-index: 100;
+        }
+
+        .navbar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .navbar-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar-title {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .navbar-subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.875rem;
+            margin-left: auto;
+        }
+
+        /* 主容器 */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 网格布局 */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 1200px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 153, 204, 0.12);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 12px 40px rgba(0, 153, 204, 0.18);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--light-cyan);
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-cyan) 0%, var(--primary-blue) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.125rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* 上传区域 */
+        .upload-zone {
+            border: 3px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            background: linear-gradient(135deg, var(--light-cyan) 0%, rgba(255, 255, 255, 0.8) 100%);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .upload-zone:hover::before {
+            left: 100%;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--primary-cyan);
+            background: linear-gradient(135deg, #d4f5ff 0%, rgba(255, 255, 255, 0.9) 100%);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--primary-blue);
+            background: linear-gradient(135deg, #b3eaff 0%, rgba(255, 255, 255, 0.95) 100%);
+        }
+
+        .upload-zone.has-file {
+            border-color: var(--success-color);
+            background: linear-gradient(135deg, #e8f5e9 0%, rgba(255, 255, 255, 0.9) 100%);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: var(--primary-blue);
+            margin-bottom: 1rem;
+            transition: transform 0.3s ease;
+        }
+
+        .upload-zone:hover .upload-icon {
+            transform: scale(1.1);
+        }
+
+        .upload-text {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-hint {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            opacity: 0.8;
+        }
+
+        .upload-input {
+            display: none;
+        }
+
+        .file-info {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(0, 200, 83, 0.1);
+            border-radius: 10px;
+        }
+
+        .file-info.show {
+            display: flex;
+        }
+
+        .file-icon {
+            font-size: 2rem;
+            color: var(--success-color);
+        }
+
+        .file-details {
+            text-align: left;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .file-size {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 0.9375rem;
+        }
+
+        .form-label i {
+            color: var(--primary-blue);
+            margin-right: 0.5rem;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 0.9375rem;
+            color: var(--text-primary);
+            background: white;
+            transition: all 0.3s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230099cc' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            cursor: pointer;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: var(--primary-cyan);
+            box-shadow: 0 0 0 4px rgba(0, 212, 255, 0.15);
+        }
+
+        .form-select:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* 自动识别标记 */
+        .auto-detected {
+            color: var(--success-color);
+            font-weight: 600;
+        }
+
+        /* 指标列选项样式 */
+        .indicator-option {
+            color: var(--primary-blue);
+        }
+
+        /* 多选框列表样式 */
+        .checkbox-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: background 0.2s ease;
+            cursor: pointer;
+        }
+
+        .checkbox-item:hover {
+            background: var(--light-cyan);
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--primary-blue);
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            flex: 1;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .checkbox-item .auto-indicator {
+            color: var(--success-color);
+            font-size: 0.75rem;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-cyan) 0%, var(--primary-blue) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 153, 204, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 153, 204, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00c853 0%, #00a344 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 83, 0.5);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        /* 数据预览表格 */
+        .preview-table-container {
+            max-height: 300px;
+            overflow: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-top: 1rem;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .preview-table th {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--deep-blue) 100%);
+            color: white;
+            padding: 0.875rem;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+        }
+
+        .preview-table td {
+            padding: 0.75rem 0.875rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .preview-table tr:nth-child(even) {
+            background: var(--light-cyan);
+        }
+
+        .preview-table tr:hover {
+            background: #d4f5ff;
+        }
+
+        /* 结果卡片 */
+        .results-section {
+            margin-top: 2rem;
+        }
+
+        .result-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 153, 204, 0.1);
+            border-left: 4px solid var(--primary-cyan);
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .result-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .result-indicator {
+            background: linear-gradient(135deg, var(--primary-cyan) 0%, var(--primary-blue) 100%);
+            color: white;
+            padding: 0.375rem 0.875rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        /* 统计值显示 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, var(--light-cyan) 0%, white 100%);
+            padding: 1rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--deep-blue);
+        }
+
+        .stat-significant {
+            color: var(--success-color);
+        }
+
+        .stat-not-significant {
+            color: var(--error-color);
+        }
+
+        /* 结果表格 */
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+
+        .result-table th {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: var(--text-primary);
+            padding: 0.75rem;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+        }
+
+        .result-table td {
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .result-table tr:nth-child(even) {
+            background: var(--light-cyan);
+        }
+
+        /* 状态指示器 */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-success {
+            background: rgba(0, 200, 83, 0.15);
+            color: var(--success-color);
+        }
+
+        .status-warning {
+            background: rgba(255, 145, 0, 0.15);
+            color: var(--warning-color);
+        }
+
+        .status-error {
+            background: rgba(255, 23, 68, 0.15);
+            color: var(--error-color);
+        }
+
+        /* 加载动画 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--light-cyan);
+            border-top-color: var(--primary-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .loading-subtext {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        /* 提示框 */
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .alert-error {
+            background: rgba(255, 23, 68, 0.1);
+            border: 1px solid rgba(255, 23, 68, 0.2);
+            color: var(--error-color);
+        }
+
+        .alert-success {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid rgba(0, 200, 83, 0.2);
+            color: var(--success-color);
+        }
+
+        .alert-warning {
+            background: rgba(255, 145, 0, 0.1);
+            border: 1px solid rgba(255, 145, 0, 0.2);
+            color: var(--warning-color);
+        }
+
+        .alert-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        /* 隐藏元素 */
+        .hidden {
+            display: none !important;
+        }
+
+        /* 数据信息 */
+        .data-info {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            background: var(--light-cyan);
+            border-radius: 10px;
+            font-size: 0.875rem;
+        }
+
+        .data-info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .data-info-item i {
+            color: var(--primary-blue);
+        }
+
+        /* 折叠面板 */
+        .collapse-panel {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .collapse-header {
+            background: linear-gradient(135deg, var(--light-cyan) 0%, white 100%);
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+
+        .collapse-header:hover {
+            background: linear-gradient(135deg, #d4f5ff 0%, white 100%);
+        }
+
+        .collapse-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .collapse-icon {
+            color: var(--primary-blue);
+            transition: transform 0.3s ease;
+        }
+
+        .collapse-panel.open .collapse-icon {
+            transform: rotate(180deg);
+        }
+
+        .collapse-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapse-panel.open .collapse-content {
+            max-height: 2000px;
+        }
+
+        .collapse-body {
+            padding: 1.25rem;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .navbar-title {
+                font-size: 1.125rem;
+            }
+
+            .navbar-subtitle {
+                display: none;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .card {
+                padding: 1.25rem;
+            }
+
+            .grid {
+                gap: 1rem;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        /* 绘图区域 */
+        .plot-section { margin-top: 2rem; }
+
+        .plot-toggle-bar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, #fff8e1 0%, #fff3cd 100%);
+            border: 2px solid #ffc107;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .plot-toggle-bar:hover { background: linear-gradient(135deg, #fff3cd 0%, #ffe082 100%); }
+        .plot-toggle-bar input[type=checkbox] { width: 20px; height: 20px; accent-color: #f59e0b; cursor: pointer; }
+        .plot-toggle-label { font-size: 1.1rem; font-weight: 600; color: #92400e; cursor: pointer; }
+
+        .plot-config { display: none; margin-top: 1.5rem; }
+        .plot-config.show { display: block; }
+
+        .plot-series-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 140px 48px;
+            gap: 0.75rem;
+            align-items: end;
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
+            background: var(--light-cyan);
+            border-radius: 10px;
+        }
+        .plot-series-row.line-mode {
+            grid-template-columns: 1fr 1fr 1fr 100px 80px 140px 48px;
+        }
+        .plot-series-row.radar-mode {
+            grid-template-columns: 1fr 100px 80px 100px 140px 48px;
+        }
+        .plot-series-row .color-swatch {
+            width: 40px; height: 40px;
+            border-radius: 8px;
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            padding: 2px;
+        }
+        .plot-series-row .remove-series {
+            width: 36px; height: 36px;
+            border: none; border-radius: 8px;
+            background: #ffebee; color: #e53935;
+            cursor: pointer; font-size: 1rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .plot-result-img {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            margin-top: 1rem;
+        }
+        .plot-small-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+    </style>
+</head>
+<body>
+    <div class="bg-decoration"></div>
+
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="navbar-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="navbar-title">SPSS ANOVA 统计分析平台</div>
+            <div class="navbar-subtitle">
+                <i class="fas fa-flask"></i> 单因素方差分析 · LSD检验 · Duncan检验 · 方差齐性检验
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="container">
+        <!-- 提示信息区域 -->
+        <div id="alertContainer"></div>
+
+        <div class="grid">
+            <!-- 第一列：数据上传 -->
+            <div class="upload-column">
+                <!-- 文件上传卡片 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h2 class="card-title">上传数据文件</h2>
+                    </div>
+
+                    <div class="upload-zone" id="uploadZone">
+                        <i class="fas fa-file-excel upload-icon"></i>
+                        <div class="upload-text">点击或拖拽上传Excel文件</div>
+                        <div class="upload-hint">支持 .xlsx, .xls 格式</div>
+                        <input type="file" id="fileInput" class="upload-input" accept=".xlsx,.xls">
+                    </div>
+
+                    <div class="file-info" id="fileInfo">
+                        <i class="fas fa-check-circle file-icon"></i>
+                        <div class="file-details">
+                            <div class="file-name" id="fileName"></div>
+                            <div class="file-size" id="fileSize"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第二列：分析配置 -->
+            <div class="config-column">
+                <!-- 列配置卡片 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <h2 class="card-title">分析配置</h2>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-tag"></i> 样品名称列
+                        </label>
+                        <select class="form-select" id="sampleColumn" disabled>
+                            <option value="">请先上传文件</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-ruler"></i> 选择要分析的指标列
+                            <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: normal;">
+                                （可多选，不选则分析所有数值列）
+                            </span>
+                        </label>
+                        <div id="valueColumnsContainer" class="checkbox-list" style="max-height: 200px; overflow-y: auto; border: 2px solid var(--border-color); border-radius: 12px; padding: 0.75rem; background: white;">
+                            <div style="color: var(--text-secondary); text-align: center; padding: 1rem;">
+                                <i class="fas fa-upload"></i> 请先上传文件
+                            </div>
+                        </div>
+                        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                            <button type="button" class="btn btn-secondary" id="selectAllIndicators" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" disabled>
+                                <i class="fas fa-check-square"></i> 全选
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="deselectAllIndicators" style="padding: 0.375rem 0.75rem; font-size: 0.75rem;" disabled>
+                                <i class="fas fa-square"></i> 全不选
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 合并平行样选项 -->
+                    <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <input type="checkbox" id="mergeParallel" style="width: 18px; height: 18px; cursor: pointer;">
+                            <label for="mergeParallel" class="form-label" style="margin-bottom: 0; cursor: pointer;">
+                                <i class="fas fa-object-group"></i> 合并平行样
+                            </label>
+                        </div>
+                        <div id="mergeOptions" style="display: none; margin-left: 1.5rem; padding: 0.75rem; background: var(--light-cyan); border-radius: 8px;">
+                            <label class="form-label" style="font-size: 0.875rem;">
+                                去掉后缀长度
+                                <input type="number" id="mergeSuffixLength" class="form-select" value="1" min="1" max="5" style="width: 80px; display: inline-block; margin-left: 0.5rem; padding: 0.5rem;">
+                            </label>
+                            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                                <i class="fas fa-info-circle"></i> 例如：样品名"0K1"去掉最后1位显示为"0K"
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="analyzeBtn" disabled>
+                            <i class="fas fa-calculator"></i>
+                            开始分析
+                        </button>
+                        <button class="btn btn-success" id="downloadBtn" disabled>
+                            <i class="fas fa-download"></i>
+                            下载完整报告
+                        </button>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- 第三列：数据预览 -->
+            <div class="preview-column">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-table"></i>
+                        </div>
+                        <h2 class="card-title">数据预览</h2>
+                    </div>
+
+                    <div class="data-info" id="dataInfo" style="display: none;">
+                        <div class="data-info-item">
+                            <i class="fas fa-columns"></i>
+                            <span id="colCount">0 列</span>
+                        </div>
+                        <div class="data-info-item">
+                            <i class="fas fa-list-ol"></i>
+                            <span id="rowCount">0 行</span>
+                        </div>
+                    </div>
+
+                    <div class="preview-table-container" id="previewContainer">
+                        <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                            <i class="fas fa-file-import" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                            <p>请先上传Excel文件以预览数据</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分析结果区域 -->
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h2 class="card-title">分析结果</h2>
+                </div>
+
+                <div id="resultsContainer"></div>
+            </div>
+        </div>
+
+        <!-- 绘图区域 -->
+        <div class="plot-section" id="plotSection">
+            <label class="plot-toggle-bar">
+                <input type="checkbox" id="enablePlot">
+                <i class="fas fa-chart-bar" style="color:#f59e0b;font-size:1.3rem;"></i>
+                <span class="plot-toggle-label">继续绘图（OriginPro 风格图表）</span>
+                <span style="margin-left:auto;font-size:0.85rem;color:#92400e;">勾选后配置图表参数</span>
+            </label>
+
+            <div class="plot-config" id="plotConfig">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+                            <i class="fas fa-palette"></i>
+                        </div>
+                        <h2 class="card-title">图表配置</h2>
+                    </div>
+
+                    <!-- 图表类型选择 -->
+                    <div style="margin-bottom:1.5rem;padding:0.75rem;background:#fff8e1;border-radius:8px;border:1px solid #ffc107;">
+                        <div class="plot-small-label" style="font-weight:600;margin-bottom:0.5rem;">图表类型</div>
+                        <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+                            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                <input type="radio" name="chartType" value="bar" checked style="width:18px;height:18px;cursor:pointer;">
+                                <i class="fas fa-chart-bar" style="color:#f59e0b;"></i>
+                                <span>柱状图</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                <input type="radio" name="chartType" value="line" style="width:18px;height:18px;cursor:pointer;">
+                                <i class="fas fa-chart-line" style="color:#f59e0b;"></i>
+                                <span>折线图</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                <input type="radio" name="chartType" value="radar" style="width:18px;height:18px;cursor:pointer;">
+                                <i class="fas fa-chart-area" style="color:#f59e0b;"></i>
+                                <span>雷达图</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                <input type="radio" name="chartType" value="heatmap" style="width:18px;height:18px;cursor:pointer;">
+                                <i class="fas fa-th" style="color:#ef4444;"></i>
+                                <span>热图</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 网格线开关 -->
+                    <div style="margin-bottom:1.5rem;padding:0.75rem;background:#f0f9ff;border-radius:8px;border:1px solid #0ea5e9;" id="gridToggleSection">
+                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                            <input type="checkbox" id="showGridLines" style="width:18px;height:18px;cursor:pointer;">
+                            <i class="fas fa-th" style="color:#0ea5e9;"></i>
+                            <span style="font-weight:600;">显示背景网格线</span>
+                        </label>
+                    </div>
+
+                    <!-- 柱状图组间距 -->
+                    <div style="margin-bottom:1.5rem;padding:0.75rem;background:#f0fdf4;border-radius:8px;border:1px solid #22c55e;" id="barSpacingSection">
+                        <label style="font-weight:600;display:block;margin-bottom:0.5rem;"><i class="fas fa-arrows-alt-h" style="color:#22c55e;"></i> 组内柱子间距</label>
+                        <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <input type="range" id="barGroupSpacing" min="0.1" max="1" step="0.05" value="0.9" style="flex:1;">
+                            <input type="number" id="barGroupSpacingVal" min="0.1" max="1" step="0.05" value="0.9" style="width:60px;padding:0.25rem 0.4rem;border:1px solid #ccc;border-radius:4px;">
+                        </div>
+                        <p style="font-size:0.75rem;color:#166534;margin-top:0.3rem;">值越小，柱子越细间隙越大（1=紧贴，0.1=最宽间隙）</p>
+                    </div>
+
+                    <!-- 雷达图数据布局选项 -->
+                    <div style="margin-bottom:1.5rem;padding:0.75rem;background:#fef3c7;border-radius:8px;border:1px solid #f59e0b;display:none;" id="radarTransposeSection">
+                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                            <input type="checkbox" id="transposeRadarData" style="width:18px;height:18px;cursor:pointer;">
+                            <i class="fas fa-exchange-alt" style="color:#f59e0b;"></i>
+                            <span style="font-weight:600;">转置数据（行列互换）</span>
+                        </label>
+                        <p style="font-size:0.75rem;color:#92400e;margin-top:0.5rem;margin-left:1.75rem;">
+                            勾选此项如果您的数据是：每行为一个样品，每列为一个指标
+                        </p>
+                    </div>
+
+                    <!-- 雷达图Y轴范围 -->
+                    <div style="margin-bottom:1.5rem;padding:0.75rem;background:#eff6ff;border-radius:8px;border:1px solid #3b82f6;display:none;" id="radarRangeSection">
+                        <div style="font-weight:600;margin-bottom:0.5rem;color:#1e40af;">雷达图数值范围</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+                            <div>
+                                <div class="plot-small-label">最小值（起点）</div>
+                                <input type="number" class="form-select" id="radarYMin" placeholder="自动" step="any">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">最大值（终点）</div>
+                                <input type="number" class="form-select" id="radarYMax" placeholder="自动" step="any">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">刻度增量</div>
+                                <input type="number" class="form-select" id="radarYStep" placeholder="自动" step="any" min="0">
+                            </div>
+                        </div>
+                        <div style="font-weight:600;margin-bottom:0.5rem;color:#1e40af;">网格线样式</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.75rem;">
+                            <div>
+                                <div class="plot-small-label">环形网格颜色</div>
+                                <input type="color" class="form-select" id="radarGridColor" value="#808080" style="height:36px;padding:2px;">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">环形网格粗细</div>
+                                <input type="number" class="form-select" id="radarGridWidth" value="0.8" step="0.1" min="0.1" max="5">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">辐射线颜色</div>
+                                <input type="color" class="form-select" id="radarSpokeColor" value="#808080" style="height:36px;padding:2px;">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">辐射线粗细</div>
+                                <input type="number" class="form-select" id="radarSpokeWidth" value="1.2" step="0.1" min="0.1" max="5">
+                            </div>
+                        </div>
+                        <div style="font-weight:600;margin:0.75rem 0 0.5rem;color:#1e40af;">标签位置与字体</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.75rem;">
+                            <div>
+                                <div class="plot-small-label">指标名称间距</div>
+                                <input type="number" class="form-select" id="radarAxisLabelPad" value="20" step="1" min="0" max="80">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">指标名称字号</div>
+                                <input type="number" class="form-select" id="radarAxisLabelSize" value="11" step="1" min="6" max="24">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">刻度标签角度(°)</div>
+                                <input type="number" class="form-select" id="radarTickAngle" value="45" step="5" min="0" max="360">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">刻度字号</div>
+                                <input type="number" class="form-select" id="radarTickSize" value="10" step="1" min="6" max="20">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 热图配置 -->
+                    <div style="margin-bottom:1.5rem;padding:0.75rem;background:#fff1f2;border-radius:8px;border:1px solid #ef4444;display:none;" id="heatmapSection">
+                        <div style="font-weight:600;margin-bottom:0.5rem;color:#b91c1c;">热图设置</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.5rem;">
+                            <div>
+                                <div class="plot-small-label">行标签列（物质/指标名）</div>
+                                <select class="form-select" id="heatmapRowCol">
+                                    <option value="">请先上传文件</option>
+                                </select>
+                            </div>
+                            <div style="display:flex;align-items:flex-end;">
+                                <div style="display:flex;flex-direction:column;gap:6px;padding-bottom:4px;">
+                                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                        <input type="checkbox" id="heatmapNormalize" checked style="width:16px;height:16px;cursor:pointer;">
+                                        <span style="font-weight:600;font-size:0.85rem;">行归一化（Z-score）</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                        <input type="checkbox" id="heatmapClusterRows" checked style="width:16px;height:16px;cursor:pointer;">
+                                        <span style="font-weight:600;font-size:0.85rem;">Cluster Rows?</span>
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                        <input type="checkbox" id="heatmapClusterCols" checked style="width:16px;height:16px;cursor:pointer;">
+                                        <span style="font-weight:600;font-size:0.85rem;">Cluster Cols?</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="plot-small-label" style="margin-bottom:0.25rem;">数值列（样品组，可多选）</div>
+                        <div id="heatmapValueCols" style="max-height:120px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;padding:0.4rem 0.6rem;background:#fff;margin-bottom:0.75rem;"></div>
+                        <!-- 图例色阶设置 -->
+                        <div style="font-weight:600;margin-bottom:0.4rem;font-size:0.85rem;">图例色阶设置</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
+                            <div>
+                                <div class="plot-small-label">起点值</div>
+                                <input type="number" id="heatmapVmin" value="-2" step="0.5" class="form-control" style="font-size:0.85rem;padding:4px 8px;">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">终点值</div>
+                                <input type="number" id="heatmapVmax" value="2" step="0.5" class="form-control" style="font-size:0.85rem;padding:4px 8px;">
+                            </div>
+                            <div>
+                                <div class="plot-small-label">增量（刻度间隔）</div>
+                                <input type="number" id="heatmapVstep" value="0.5" step="0.1" min="0.1" class="form-control" style="font-size:0.85rem;padding:4px 8px;">
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">
+                            <div>
+                                <div class="plot-small-label">起点颜色</div>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <input type="color" id="heatmapColorMin" value="#1446AF" style="width:36px;height:28px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;">
+                                    <input type="text" id="heatmapColorMinHex" value="#1446AF" maxlength="7" class="form-control" style="font-size:0.8rem;padding:4px 6px;width:80px;">
+                                </div>
+                            </div>
+                            <div>
+                                <div class="plot-small-label">中点颜色（0值）</div>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <input type="color" id="heatmapColorMid" value="#EDE7AD" style="width:36px;height:28px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;">
+                                    <input type="text" id="heatmapColorMidHex" value="#EDE7AD" maxlength="7" class="form-control" style="font-size:0.8rem;padding:4px 6px;width:80px;">
+                                </div>
+                            </div>
+                            <div>
+                                <div class="plot-small-label">终点颜色</div>
+                                <div style="display:flex;align-items:center;gap:4px;">
+                                    <input type="color" id="heatmapColorMax" value="#CF1C1D" style="width:36px;height:28px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;">
+                                    <input type="text" id="heatmapColorMaxHex" value="#CF1C1D" maxlength="7" class="form-control" style="font-size:0.8rem;padding:4px 6px;width:80px;">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 图例字体设置 -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.5rem;">
+                            <div>
+                                <div class="plot-small-label">图例字体大小</div>
+                                <input type="number" id="heatmapCbarFontSize" value="7" min="4" max="20" class="form-control" style="font-size:0.85rem;padding:4px 8px;">
+                            </div>
+                            <div style="display:flex;align-items:flex-end;padding-bottom:4px;">
+                                <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                    <input type="checkbox" id="heatmapCbarBold" style="width:16px;height:16px;cursor:pointer;">
+                                    <span style="font-size:0.85rem;font-weight:600;">图例加粗</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 基础轴配置 -->
+                    <div id="axisConfigSection" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <div class="plot-small-label">X 轴数据列</div>
+                            <select class="form-select" id="plotXCol">
+                                <option value="">请先上传文件</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <div class="plot-small-label">X 轴标签</div>
+                            <input type="text" class="form-select" id="plotXLabel" placeholder="例：样品名称">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <div class="plot-small-label">Y 轴标签</div>
+                            <input type="text" class="form-select" id="plotYLabel" placeholder="例：质构">
+                        </div>
+                    </div>
+
+                    <!-- 字号设置 -->
+                    <div style="margin-bottom:1rem;padding:0.75rem;background:#fafafa;border-radius:8px;border:1px solid var(--border-color);">
+                        <div class="plot-small-label" style="font-weight:600;margin-bottom:0.5rem;">字号设置（pt）及加粗</div>
+                        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.5rem;">
+                            <div>
+                                <div class="plot-small-label">标题</div>
+                                <input type="number" class="form-select" id="fsTitleSize" value="14" min="6" max="36" style="padding:0.35rem 0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.3rem;margin-top:3px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" id="boldTitle" style="cursor:pointer;"> 加粗</label>
+                            </div>
+                            <div>
+                                <div class="plot-small-label">轴标签</div>
+                                <input type="number" class="form-select" id="fsAxisLabel" value="13" min="6" max="36" style="padding:0.35rem 0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.3rem;margin-top:3px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" id="boldAxisLabel" style="cursor:pointer;"> 加粗</label>
+                            </div>
+                            <div>
+                                <div class="plot-small-label">刻度</div>
+                                <input type="number" class="form-select" id="fsTick" value="11" min="6" max="36" style="padding:0.35rem 0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.3rem;margin-top:3px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" id="boldTick" style="cursor:pointer;"> 加粗</label>
+                            </div>
+                            <div id="fsLegendGroup">
+                                <div class="plot-small-label">图例</div>
+                                <input type="number" class="form-select" id="fsLegend" value="10" min="6" max="36" style="padding:0.35rem 0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.3rem;margin-top:3px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" id="boldLegend" style="cursor:pointer;"> 加粗</label>
+                            </div>
+                            <div id="fsDataLabelGroup">
+                                <div class="plot-small-label">数据标签</div>
+                                <input type="number" class="form-select" id="fsDataLabel" value="9" min="6" max="36" style="padding:0.35rem 0.5rem;">
+                                <label style="display:flex;align-items:center;gap:0.3rem;margin-top:3px;cursor:pointer;font-size:0.78rem;"><input type="checkbox" id="boldDataLabel" style="cursor:pointer;"> 加粗</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Y轴系列 -->
+                    <div id="seriesSection" style="margin-bottom:1rem;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+                            <strong style="color:var(--text-primary);">Y 轴系列（可添加多个）</strong>
+                            <button class="btn btn-secondary" id="addSeriesBtn" style="padding:0.4rem 0.9rem;font-size:0.85rem;">
+                                <i class="fas fa-plus"></i> 添加系列
+                            </button>
+                        </div>
+                        <div id="seriesHeader" style="display:grid;grid-template-columns:1fr 1fr 1fr 140px 48px;gap:0.5rem;margin-bottom:0.4rem;padding:0 0.75rem;">
+                            <div class="plot-small-label">Y 值列</div>
+                            <div class="plot-small-label">标准差列（可选）</div>
+                            <div class="plot-small-label">标签列（Duncan等，可选）</div>
+                            <div class="plot-small-label">颜色</div>
+                            <div></div>
+                        </div>
+                        <div id="seriesContainer"></div>
+                    </div>
+
+                    <div class="btn-group" style="margin-top:1rem;">
+                        <button class="btn btn-primary" id="generatePlotBtn">
+                            <i class="fas fa-chart-bar"></i> 生成图表
+                        </button>
+                        <button class="btn btn-success" id="downloadPlotBtn" style="display:none;">
+                            <i class="fas fa-image"></i> 下载图片
+                        </button>
+                        <button class="btn btn-secondary" id="downloadPlotExcelBtn" style="display:none;">
+                            <i class="fas fa-file-excel"></i> 下载数据(Excel)
+                        </button>
+                        <button class="btn btn-secondary" id="downloadPlotOpjuBtn" style="display:none; background:linear-gradient(135deg,#1565c0,#0d47a1); color:#fff; border:none;">
+                            <i class="fas fa-file-excel"></i> 下载 Origin 图表(.xlsx)
+                        </button>
+                    </div>
+
+                    <div id="plotResult" style="margin-top:1.5rem;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载动画 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">正在分析数据...</div>
+        <div class="loading-subtext">执行ANOVA检验、LSD检验、Duncan检验和方差齐性检验</div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=9"></script>
+</body>
+</html>
