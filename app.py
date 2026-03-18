@@ -945,21 +945,81 @@ def strip_stat_suffix(col_name):
 
 
 def setup_fonts():
-    """配置中文字体"""
-    import os
-    # 优先加载项目内字体（兼容Linux/Render部署）
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    local_font = os.path.join(base_dir, 'static', 'fonts', 'simhei.ttf')
-    if os.path.exists(local_font):
-        fm.fontManager.addfont(local_font)
+    """配置字体：中文宋体，英文/数字/标点 Times New Roman"""
+    import os, urllib.request
 
-    simsun_candidates = ['SimHei', 'WenQuanYi Zen Hei', 'SimSun', 'STSong', 'NSimSun', 'FangSong']
-    tnr_candidates = ['Times New Roman', 'Times', 'DejaVu Serif']
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    fonts_dir = os.path.join(base_dir, 'static', 'fonts')
+    os.makedirs(fonts_dir, exist_ok=True)
+
+    # --- 宋体 (SimSun) ---
+    simsun_path = os.path.join(fonts_dir, 'simsun.ttc')
+    if not os.path.exists(simsun_path):
+        # 尝试从系统路径复制
+        sys_candidates = [
+            '/usr/share/fonts/truetype/arphic/uming.ttc',
+            '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc',
+        ]
+        copied = False
+        for p in sys_candidates:
+            if os.path.exists(p):
+                import shutil
+                shutil.copy2(p, simsun_path)
+                copied = True
+                break
+        if not copied:
+            # 下载开源宋体替代（文泉驿正黑 / Noto Serif CJK）
+            try:
+                url = 'https://github.com/googlefonts/noto-cjk/raw/main/Serif/OTF/SimplifiedChinese/NotoSerifCJKsc-Regular.otf'
+                simsun_path = os.path.join(fonts_dir, 'NotoSerifCJKsc-Regular.otf')
+                if not os.path.exists(simsun_path):
+                    urllib.request.urlretrieve(url, simsun_path)
+            except Exception:
+                simsun_path = None
+
+    if simsun_path and os.path.exists(simsun_path):
+        fm.fontManager.addfont(simsun_path)
+
+    # --- 同时加载已有的 simhei.ttf 作为备用 ---
+    simhei_path = os.path.join(fonts_dir, 'simhei.ttf')
+    if os.path.exists(simhei_path):
+        fm.fontManager.addfont(simhei_path)
+
+    # --- Times New Roman ---
+    tnr_path = os.path.join(fonts_dir, 'times.ttf')
+    if not os.path.exists(tnr_path):
+        sys_tnr = [
+            '/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf',
+        ]
+        copied = False
+        for p in sys_tnr:
+            if os.path.exists(p):
+                import shutil
+                shutil.copy2(p, tnr_path)
+                copied = True
+                break
+        if not copied:
+            try:
+                url = 'https://github.com/matomo-org/travis-scripts/raw/master/fonts/Times_New_Roman.ttf'
+                if not os.path.exists(tnr_path):
+                    urllib.request.urlretrieve(url, tnr_path)
+            except Exception:
+                tnr_path = None
+
+    if tnr_path and os.path.exists(tnr_path):
+        fm.fontManager.addfont(tnr_path)
 
     available = {f.name for f in fm.fontManager.ttflist}
 
-    chinese_font = next((f for f in simsun_candidates if f in available), None)
-    english_font = next((f for f in tnr_candidates if f in available), 'DejaVu Serif')
+    # 中文优先宋体
+    chinese_candidates = ['NotoSerifCJKsc-Regular', 'Noto Serif CJK SC', 'SimSun', 'NSimSun',
+                          'STSong', 'SimHei', 'WenQuanYi Zen Hei', 'FangSong']
+    # 英文优先 Times New Roman
+    english_candidates = ['Times New Roman', 'Times', 'Liberation Serif', 'DejaVu Serif']
+
+    chinese_font = next((f for f in chinese_candidates if f in available), None)
+    english_font = next((f for f in english_candidates if f in available), 'DejaVu Serif')
 
     return chinese_font, english_font
 
@@ -1487,12 +1547,11 @@ def make_heatmap(config):
     row_labels = [mat.index[i] for i in row_order]
     col_labels = [mat.columns[i] for i in col_order]
 
-    # 字体：优先使用能显示中文的字体
+    # 字体：优先宋体，备用其他中文字体
     from matplotlib import font_manager
-    # 尝试更多中文字体候选
-    zh_candidates = ['SimHei', 'Microsoft YaHei', 'SimSun', 'STSong', 'NSimSun',
-                     'WenQuanYi Micro Hei', 'Noto Sans CJK SC', 'AR PL UMing CN',
-                     'Source Han Sans CN', 'PingFang SC']
+    zh_candidates = ['NotoSerifCJKsc-Regular', 'Noto Serif CJK SC', 'SimSun', 'NSimSun',
+                     'STSong', 'SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei',
+                     'Noto Sans CJK SC', 'AR PL UMing CN', 'Source Han Sans CN', 'PingFang SC']
     available_names = {f.name for f in font_manager.fontManager.ttflist}
     zh_font = next((f for f in zh_candidates if f in available_names), chinese_font)
 
