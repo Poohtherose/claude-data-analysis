@@ -946,8 +946,26 @@ def strip_stat_suffix(col_name):
 
 def setup_fonts():
     """配置中文宋体 + 英文Times New Roman混合字体"""
-    # 尝试找到宋体
-    simsun_candidates = ['SimSun', 'STSong', 'NSimSun', 'FangSong', 'AR PL UMing CN']
+    import os, sys
+    # Linux环境自动安装中文字体
+    if sys.platform.startswith('linux'):
+        font_dir = os.path.expanduser('~/.fonts')
+        font_path = os.path.join(font_dir, 'wqy-zenhei.ttc')
+        if not os.path.exists(font_path):
+            try:
+                os.makedirs(font_dir, exist_ok=True)
+                import urllib.request
+                urllib.request.urlretrieve(
+                    'https://github.com/anthonyfok/fonts-wqy-zenhei/raw/master/wqy-zenhei.ttc',
+                    font_path
+                )
+                fm.fontManager.addfont(font_path)
+            except Exception:
+                pass
+        elif os.path.exists(font_path):
+            fm.fontManager.addfont(font_path)
+
+    simsun_candidates = ['WenQuanYi Zen Hei', 'SimSun', 'STSong', 'NSimSun', 'FangSong', 'AR PL UMing CN']
     tnr_candidates = ['Times New Roman', 'Times', 'DejaVu Serif']
 
     available = {f.name for f in fm.fontManager.ttflist}
