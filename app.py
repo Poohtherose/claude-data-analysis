@@ -1582,7 +1582,7 @@ def make_heatmap(config):
     right_margin = min(0.75, max(0.55, 1.0 - label_inch / fig_w - 0.08))
     gs = GridSpec(2, 4,
                   width_ratios=[0.10, 0.50, 0.02, 0.04],
-                  height_ratios=[0.15, 0.85],
+                  height_ratios=[0.08, 0.92],
                   left=0.02, right=right_margin, top=0.95, bottom=0.06,
                   hspace=0.01, wspace=0.02)
 
@@ -1637,10 +1637,20 @@ def make_heatmap(config):
 
     # 列树状图
     if col_link is not None:
-        dendrogram(col_link, ax=ax_col_dend, orientation='top',
+        col_dend_data = dendrogram(col_link, ax=ax_col_dend, orientation='top',
                    labels=mat.columns.tolist(), no_labels=True,
                    link_color_func=lambda k: 'black',
                    above_threshold_color='black')
+        # 压缩y轴：让最高点只比次高点高出相同比例，避免顶部大聚类线过长
+        icoord = col_dend_data['icoord']
+        dcoord = col_dend_data['dcoord']
+        all_heights = sorted(set(h for d in dcoord for h in d if h > 0))
+        if len(all_heights) >= 2:
+            second_max = all_heights[-2]
+            max_h = all_heights[-1]
+            gap = max_h - second_max
+            new_max = second_max + gap * 0.5  # 顶部间距压缩为原来一半
+            ax_col_dend.set_ylim(0, new_max * 1.05)
         ax_col_dend.set_xlim(0, n_cols * 10)
     ax_col_dend.axis('off')
 
