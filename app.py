@@ -945,27 +945,15 @@ def strip_stat_suffix(col_name):
 
 
 def setup_fonts():
-    """配置中文宋体 + 英文Times New Roman混合字体"""
-    import os, sys
-    # Linux环境自动安装中文字体
-    if sys.platform.startswith('linux'):
-        font_dir = os.path.expanduser('~/.fonts')
-        font_path = os.path.join(font_dir, 'wqy-zenhei.ttc')
-        if not os.path.exists(font_path):
-            try:
-                os.makedirs(font_dir, exist_ok=True)
-                import urllib.request
-                urllib.request.urlretrieve(
-                    'https://github.com/anthonyfok/fonts-wqy-zenhei/raw/master/wqy-zenhei.ttc',
-                    font_path
-                )
-                fm.fontManager.addfont(font_path)
-            except Exception:
-                pass
-        elif os.path.exists(font_path):
-            fm.fontManager.addfont(font_path)
+    """配置中文字体"""
+    import os
+    # 优先加载项目内字体（兼容Linux/Render部署）
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    local_font = os.path.join(base_dir, 'static', 'fonts', 'simhei.ttf')
+    if os.path.exists(local_font):
+        fm.fontManager.addfont(local_font)
 
-    simsun_candidates = ['WenQuanYi Zen Hei', 'SimSun', 'STSong', 'NSimSun', 'FangSong', 'AR PL UMing CN']
+    simsun_candidates = ['SimHei', 'WenQuanYi Zen Hei', 'SimSun', 'STSong', 'NSimSun', 'FangSong']
     tnr_candidates = ['Times New Roman', 'Times', 'DejaVu Serif']
 
     available = {f.name for f in fm.fontManager.ttflist}
