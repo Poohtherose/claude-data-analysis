@@ -8,3 +8,4 @@ statsmodels
 matplotlib
 gunicorn
 xlrd
+scikit-learn

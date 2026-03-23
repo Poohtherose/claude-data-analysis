@@ -2087,6 +2087,9 @@ def api_plot():
         elif chart_type == 'heatmap':
             img_b64, excel_b64 = make_heatmap(payload)
             opju_b64 = excel_b64
+        elif chart_type == 'pca':
+            img_b64, excel_b64 = make_pca_plot(payload)
+            opju_b64 = excel_b64
         else:
             return jsonify({'error': f'暂不支持图表类型: {chart_type}'}), 400
 
@@ -2095,6 +2098,181 @@ def api_plot():
     except Exception as e:
         import traceback
         return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+def make_pca_plot(config):
+    """
+    SIMCA 14.1 风格 PCA 得分图 (t[1] vs t[2])
+    支持分组着色 + Hotelling T² 95% 置信椭圆
+    """
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.decomposition import PCA
+
+    data = config.get('data', [])
+    value_cols = config.get('value_cols', [])
+    group_col = config.get('group_col', '')
+    pc_x = int(config.get('pc_x', 1))
+    pc_y = int(config.get('pc_y', 2))
+    show_ellipse = config.get('show_ellipse', True)
+    show_labels = config.get('show_labels', True)
+    title = config.get('title', '')
+    font_sizes = config.get('font_sizes', {})
+    bold = config.get('bold', {})
+    show_grid = config.get('show_grid', False)
+
+    df = pd.DataFrame(data)
+    if not value_cols:
+        value_cols = [c for c in df.columns if c != group_col and pd.api.types.is_numeric_dtype(df[c])]
+
+    X = df[value_cols].apply(pd.to_numeric, errors='coerce').dropna()
+    valid_idx = X.index
+    n_components = max(pc_x, pc_y)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    pca = PCA(n_components=n_components)
+    scores = pca.fit_transform(X_scaled)
+    r2x = pca.explained_variance_ratio_
+
+    chinese_font, english_font = setup_fonts()
+
+    def fw(key, default):
+        return 'bold' if bold.get(key) else 'normal'
+
+    fig, ax = plt.subplots(figsize=(7, 6), dpi=150)
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
+
+    # SIMCA 风格：细黑边框
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.8)
+        spine.set_color('black')
+
+    # 分组
+    groups = df.loc[valid_idx, group_col].astype(str).values if group_col and group_col in df.columns else None
+    unique_groups = list(dict.fromkeys(groups)) if groups is not None else ['All']
+
+    # SIMCA 默认调色板
+    simca_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+                    '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+
+    t_x = scores[:, pc_x - 1]
+    t_y = scores[:, pc_y - 1]
+
+    for i, grp in enumerate(unique_groups):
+        color = simca_colors[i % len(simca_colors)]
+        if groups is not None:
+            mask = groups == grp
+        else:
+            mask = np.ones(len(t_x), dtype=bool)
+
+        ax.scatter(t_x[mask], t_y[mask], s=40, color=color, label=grp,
+                   edgecolors='white', linewidths=0.5, zorder=3)
+
+        # 样本标签
+        if show_labels:
+            obs_ids = df.loc[valid_idx, :].index[mask]
+            for j, idx in enumerate(obs_ids):
+                lbl = str(df.loc[idx].name) if group_col == '' else str(idx)
+                ax.annotate(lbl, (t_x[mask][j], t_y[mask][j]),
+                            fontsize=7, xytext=(3, 3), textcoords='offset points',
+                            color=color, zorder=4)
+
+        # Hotelling T² 95% 椭圆（每组独立）
+        if show_ellipse and mask.sum() >= 3:
+            pts = np.column_stack([t_x[mask], t_y[mask]])
+            mean = pts.mean(axis=0)
+            cov = np.cov(pts.T)
+            n = pts.shape[0]
+            p = 2
+            from scipy.stats import f as f_dist
+            f_crit = f_dist.ppf(0.95, p, n - p)
+            c2 = p * (n - 1) / (n - p) * f_crit
+            try:
+                vals, vecs = np.linalg.eigh(cov)
+                vals = np.maximum(vals, 0)
+                order = vals.argsort()[::-1]
+                vals, vecs = vals[order], vecs[:, order]
+                theta = np.linspace(0, 2 * np.pi, 200)
+                ellipse = np.sqrt(c2) * (vecs * np.sqrt(vals)) @ np.array([np.cos(theta), np.sin(theta)])
+                ax.plot(mean[0] + ellipse[0], mean[1] + ellipse[1],
+                        color=color, linewidth=1.2, linestyle='--', zorder=2)
+            except Exception:
+                pass
+
+    # 全局 Hotelling T² 椭圆（所有样本）
+    if show_ellipse and len(t_x) >= 3:
+        pts = np.column_stack([t_x, t_y])
+        mean = pts.mean(axis=0)
+        cov = np.cov(pts.T)
+        n = pts.shape[0]
+        p = 2
+        from scipy.stats import f as f_dist
+        f_crit = f_dist.ppf(0.95, p, n - p)
+        c2 = p * (n - 1) / (n - p) * f_crit
+        try:
+            vals, vecs = np.linalg.eigh(cov)
+            vals = np.maximum(vals, 0)
+            order = vals.argsort()[::-1]
+            vals, vecs = vals[order], vecs[:, order]
+            theta = np.linspace(0, 2 * np.pi, 200)
+            ellipse = np.sqrt(c2) * (vecs * np.sqrt(vals)) @ np.array([np.cos(theta), np.sin(theta)])
+            ax.plot(mean[0] + ellipse[0], mean[1] + ellipse[1],
+                    color='gray', linewidth=1.5, linestyle='-', zorder=2, label="Hotelling's T² (95%)")
+        except Exception:
+            pass
+
+    # 轴线穿过原点
+    ax.axhline(0, color='black', linewidth=0.6, zorder=1)
+    ax.axvline(0, color='black', linewidth=0.6, zorder=1)
+
+    if show_grid:
+        ax.grid(True, linestyle='--', linewidth=0.4, color='#cccccc', zorder=0)
+
+    r2x_pct = [f'{v*100:.2f}%' for v in r2x]
+    ax.set_xlabel(f't[{pc_x}]', fontsize=font_sizes.get('axis_label', 12),
+                  fontweight=fw('axis_label', 'normal'),
+                  fontfamily=english_font or 'DejaVu Serif')
+    ax.set_ylabel(f't[{pc_y}]', fontsize=font_sizes.get('axis_label', 12),
+                  fontweight=fw('axis_label', 'normal'),
+                  fontfamily=english_font or 'DejaVu Serif')
+
+    # Footer: R2X values + ellipse info (SIMCA 风格)
+    footer = f'R2X[{pc_x}] = {r2x[pc_x-1]:.4f}    R2X[{pc_y}] = {r2x[pc_y-1]:.4f}'
+    if show_ellipse:
+        footer += "    Ellipse: Hotelling's T2 (95%)"
+    ax.text(0.5, -0.12, footer, transform=ax.transAxes, ha='center', va='top',
+            fontsize=font_sizes.get('tick', 9),
+            fontfamily=english_font or 'DejaVu Serif', color='#333333')
+
+    if title:
+        ax.set_title(title, fontsize=font_sizes.get('title', 14),
+                     fontweight=fw('title', 'normal'))
+
+    ax.tick_params(labelsize=font_sizes.get('tick', 10))
+
+    if groups is not None:
+        legend = ax.legend(fontsize=font_sizes.get('legend', 9),
+                           frameon=True, framealpha=0.9,
+                           edgecolor='#cccccc', loc='best')
+
+    plt.tight_layout(rect=[0, 0.08, 1, 1])
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    buf.seek(0)
+    img_b64 = base64.b64encode(buf.read()).decode()
+
+    # Excel 导出：得分矩阵
+    score_df = pd.DataFrame(scores, columns=[f't[{i+1}]' for i in range(n_components)])
+    if group_col and group_col in df.columns:
+        score_df.insert(0, group_col, df.loc[valid_idx, group_col].values)
+    excel_buf = io.BytesIO()
+    score_df.to_excel(excel_buf, index=False)
+    excel_buf.seek(0)
+    excel_b64 = base64.b64encode(excel_buf.read()).decode()
+
+    return img_b64, excel_b64
 
 
 if __name__ == '__main__':

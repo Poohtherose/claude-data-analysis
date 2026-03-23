@@ -1090,6 +1090,11 @@
                                 <i class="fas fa-th" style="color:#ef4444;"></i>
                                 <span>热图</span>
                             </label>
+                            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                <input type="radio" name="chartType" value="pca" style="width:18px;height:18px;cursor:pointer;">
+                                <i class="fas fa-circle-dot" style="color:#7c3aed;"></i>
+                                <span>PCA 得分图</span>
+                            </label>
                         </div>
                     </div>
 
@@ -1264,6 +1269,53 @@
                         </div>
                     </div>
 
+                    <!-- PCA 配置 -->
+                    <div style="margin-bottom:1.5rem;padding:0.75rem;background:#f5f3ff;border-radius:8px;border:1px solid #7c3aed;display:none;" id="pcaSection">
+                        <div style="font-weight:600;margin-bottom:0.75rem;color:#5b21b6;">PCA 得分图设置（SIMCA 14.1 风格）</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+                            <div>
+                                <div class="plot-small-label">分组列（Class，可选）</div>
+                                <select class="form-select" id="pcaGroupCol">
+                                    <option value="">不分组</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="plot-small-label">数值列（可多选，不选则用全部数值列）</div>
+                                <div id="pcaValueCols" style="max-height:100px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;padding:0.4rem 0.6rem;background:#fff;"></div>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+                            <div>
+                                <div class="plot-small-label">X 轴主成分</div>
+                                <select class="form-select" id="pcaCompX">
+                                    <option value="1">PC 1</option>
+                                    <option value="2">PC 2</option>
+                                    <option value="3">PC 3</option>
+                                    <option value="4">PC 4</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="plot-small-label">Y 轴主成分</div>
+                                <select class="form-select" id="pcaCompY">
+                                    <option value="1">PC 1</option>
+                                    <option value="2" selected>PC 2</option>
+                                    <option value="3">PC 3</option>
+                                    <option value="4">PC 4</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+                            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                <input type="checkbox" id="pcaShowEllipse" checked style="width:16px;height:16px;cursor:pointer;">
+                                <span style="font-weight:600;font-size:0.85rem;">显示 Hotelling's T² 95% 椭圆</span>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                <input type="checkbox" id="pcaShowLabels" style="width:16px;height:16px;cursor:pointer;">
+                                <span style="font-weight:600;font-size:0.85rem;">显示样本标签</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <!-- 基础轴配置 -->
                     <div id="axisConfigSection" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
                         <div class="form-group" style="margin-bottom:0;">
@@ -1360,6 +1412,6 @@
         <div class="loading-subtext">执行ANOVA检验、LSD检验、Duncan检验和方差齐性检验</div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=9"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=10"></script>
 </body>
 </html>

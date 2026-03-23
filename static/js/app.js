@@ -314,6 +314,20 @@ function updateColumnSelectors(columns, detected) {
             </label>`
         ).join('');
     }
+    // 同步 PCA 列选择器
+    const pcaGroupSel = document.getElementById('pcaGroupCol');
+    if (pcaGroupSel) {
+        pcaGroupSel.innerHTML = '<option value="">不分组</option>' + getColumnOptions('');
+    }
+    const pcaValSel = document.getElementById('pcaValueCols');
+    if (pcaValSel && state.columns) {
+        pcaValSel.innerHTML = state.columns.map(c =>
+            `<label style="display:flex;align-items:center;gap:0.4rem;padding:2px 0;cursor:pointer;">
+                <input type="checkbox" value="${c}" style="width:15px;height:15px;cursor:pointer;">
+                <span style="font-size:0.85rem;">${c}</span>
+            </label>`
+        ).join('');
+    }
     refreshPlotColumnSelectors();
 }
 
@@ -801,25 +815,26 @@ function initPlotModule() {
 
             const isHeatmap = radio.value === 'heatmap';
             const isRadar = radio.value === 'radar';
+            const isPca = radio.value === 'pca';
 
-            // 清空现有系列并重新添加（热图不需要系列配置）
+            // 清空现有系列并重新添加（热图/PCA不需要系列配置）
             const container = document.getElementById('seriesContainer');
-            if (container && !isHeatmap) {
+            if (container && !isHeatmap && !isPca) {
                 container.innerHTML = '';
                 plotState.seriesCount = 0;
                 addSeries();  // 添加一个默认系列
             }
 
-            // 系列配置区域（热图不需要）
+            // 系列配置区域（热图/PCA不需要）
             const seriesSection = document.getElementById('seriesSection');
             if (seriesSection) {
-                seriesSection.style.display = isHeatmap ? 'none' : 'block';
+                seriesSection.style.display = (isHeatmap || isPca) ? 'none' : 'block';
             }
 
-            // 基础轴配置（热图不需要）
+            // 基础轴配置（热图/PCA不需要）
             const axisConfigSection = document.getElementById('axisConfigSection');
             if (axisConfigSection) {
-                axisConfigSection.style.display = isHeatmap ? 'none' : 'grid';
+                axisConfigSection.style.display = (isHeatmap || isPca) ? 'none' : 'grid';
             }
 
             // 网格线开关（雷达图和热图不需要）
@@ -852,7 +867,13 @@ function initPlotModule() {
                 heatmapSection.style.display = isHeatmap ? 'block' : 'none';
             }
 
-            // 热图不需要图例和数据标签字号
+            // PCA 配置
+            const pcaSection = document.getElementById('pcaSection');
+            if (pcaSection) {
+                pcaSection.style.display = isPca ? 'block' : 'none';
+            }
+
+            // 热图/PCA不需要图例和数据标签字号
             const fsLegendGroup = document.getElementById('fsLegendGroup');
             const fsDataLabelGroup = document.getElementById('fsDataLabelGroup');
             if (fsLegendGroup) fsLegendGroup.style.display = isHeatmap ? 'none' : '';
@@ -1057,11 +1078,7 @@ async function generatePlot() {
         return;
     }
 
-    const xCol = document.getElementById('plotXCol').value;
-    if (!xCol) { showAlert('请选择 X 轴数据列', 'error'); return; }
-
-    const rows = document.querySelectorAll('#seriesContainer .plot-series-row');
-    // 获取图表类型
+    // 获取图表类型（提前，PCA 不需要 xCol）
     const chartType = document.querySelector('input[name="chartType"]:checked')?.value || 'bar';
     const boldConfig = {
         title: document.getElementById('boldTitle')?.checked || false,
@@ -1070,6 +1087,70 @@ async function generatePlot() {
         legend: document.getElementById('boldLegend')?.checked || false,
         data_label: document.getElementById('boldDataLabel')?.checked || false,
     };
+
+    if (chartType === 'pca') {
+        const groupCol = document.getElementById('pcaGroupCol')?.value || '';
+        const valueCols = Array.from(document.getElementById('pcaValueCols')?.querySelectorAll('input[type="checkbox"]:checked') || []).map(cb => cb.value);
+        const pcX = parseInt(document.getElementById('pcaCompX')?.value) || 1;
+        const pcY = parseInt(document.getElementById('pcaCompY')?.value) || 2;
+        const showEllipse = document.getElementById('pcaShowEllipse')?.checked ?? true;
+        const showLabels = document.getElementById('pcaShowLabels')?.checked ?? false;
+        const showGrid = document.getElementById('showGridLines')?.checked || false;
+
+        // 使用全量数据
+        const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;
+
+        const payload = {
+            chart_type: 'pca',
+            data: allData,
+            value_cols: valueCols,
+            group_col: groupCol,
+            pc_x: pcX,
+            pc_y: pcY,
+            show_ellipse: showEllipse,
+            show_labels: showLabels,
+            show_grid: showGrid,
+            bold: boldConfig,
+            font_sizes: {
+                title: parseInt(document.getElementById('fsTitleSize')?.value) || 14,
+                axis_label: parseInt(document.getElementById('fsAxisLabel')?.value) || 12,
+                tick: parseInt(document.getElementById('fsTick')?.value) || 10,
+                legend: parseInt(document.getElementById('fsLegend')?.value) || 9,
+            }
+        };
+
+        showLoading(true);
+        try {
+            const resp = await fetch('/api/plot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await resp.json();
+            if (result.error) throw new Error(result.error);
+
+            plotState.lastImageB64 = result.image;
+            plotState.lastExcelB64 = result.excel;
+            plotState.lastOpjuB64 = null;
+
+            document.getElementById('plotResult').innerHTML = `<img class="plot-result-img" src="data:image/png;base64,${result.image}" alt="PCA图">`;
+            document.getElementById('downloadPlotBtn').style.display = 'inline-flex';
+            document.getElementById('downloadPlotExcelBtn').style.display = 'inline-flex';
+            const opjuBtn = document.getElementById('downloadPlotOpjuBtn');
+            if (opjuBtn) opjuBtn.style.display = 'none';
+            showAlert('PCA 图生成成功！', 'success');
+        } catch (e) {
+            showAlert('生成 PCA 图失败: ' + e.message, 'error');
+        } finally {
+            showLoading(false);
+        }
+        return;
+    }
+
+    const xCol = document.getElementById('plotXCol').value;
+    if (!xCol) { showAlert('请选择 X 轴数据列', 'error'); return; }
+
+    const rows = document.querySelectorAll('#seriesContainer .plot-series-row');
 
     if (chartType === 'heatmap') {
         const rowCol = document.getElementById('heatmapRowCol')?.value || '';
