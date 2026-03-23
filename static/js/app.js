@@ -331,6 +331,45 @@ function updateColumnSelectors(columns, detected) {
     refreshPlotColumnSelectors();
 }
 
+// PCA 分组管理
+const PCA_COLORS = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+
+function pcaAddGroupRow(name='', color='', indicesStr='') {
+    const container = document.getElementById('pcaGroupRows');
+    if (!container) return;
+    const idx = container.querySelectorAll('.pca-group-row').length;
+    const c = color || PCA_COLORS[idx % PCA_COLORS.length];
+    const row = document.createElement('div');
+    row.className = 'pca-group-row';
+    row.style.cssText = 'display:grid;grid-template-columns:120px 40px 1fr 28px;gap:0.4rem;align-items:center;margin-bottom:0.4rem;';
+    row.innerHTML = `
+        <input type="text" class="pca-grp-name form-select" placeholder="组名" value="${escapeHtml(name)}" style="padding:0.3rem 0.5rem;font-size:0.82rem;">
+        <input type="color" class="pca-grp-color" value="${c}" style="height:32px;width:36px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;">
+        <input type="text" class="pca-grp-indices form-select" placeholder="行号(0起)，逗号分隔，如: 0,1,2" value="${escapeHtml(indicesStr)}" style="padding:0.3rem 0.5rem;font-size:0.82rem;">
+        <button type="button" style="background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.9rem;padding:0 6px;height:28px;" onclick="this.closest('.pca-group-row').remove()">×</button>`;
+    container.appendChild(row);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('pcaAddGroupBtn')?.addEventListener('click', () => pcaAddGroupRow());
+    document.getElementById('pcaLoadGroupsBtn')?.addEventListener('click', () => {
+        const col = document.getElementById('pcaGroupCol')?.value;
+        if (!col) { showAlert('请先选择分组列', 'error'); return; }
+        const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;
+        // 按列值分组，收集行号
+        const groupMap = {};
+        allData.forEach((row, i) => {
+            const val = String(row[col] ?? '');
+            if (!groupMap[val]) groupMap[val] = [];
+            groupMap[val].push(i);
+        });
+        document.getElementById('pcaGroupRows').innerHTML = '';
+        Object.entries(groupMap).forEach(([name, indices]) => {
+            pcaAddGroupRow(name, '', indices.join(','));
+        });
+    });
+});
+
 function updatePreview(data, shape) {
     if (!data || data.length === 0) {
         console.warn('No preview data');
@@ -1089,34 +1128,45 @@ async function generatePlot() {
     };
 
     if (chartType === 'pca') {
-        const groupCol = document.getElementById('pcaGroupCol')?.value || '';
         const valueCols = Array.from(document.getElementById('pcaValueCols')?.querySelectorAll('input[type="checkbox"]:checked') || []).map(cb => cb.value);
         const pcX = parseInt(document.getElementById('pcaCompX')?.value) || 1;
         const pcY = parseInt(document.getElementById('pcaCompY')?.value) || 2;
         const showEllipse = document.getElementById('pcaShowEllipse')?.checked ?? true;
-        const showLabels = document.getElementById('pcaShowLabels')?.checked ?? false;
-        const showGrid = document.getElementById('showGridLines')?.checked || false;
+        const showLabels = document.getElementById('pcaShowLabels')?.checked ?? true;
+        const showGrid = document.getElementById('pcaShowGrid')?.checked ?? true;
 
-        // 使用全量数据
+        // 收集分组信息
+        const groupRows = document.querySelectorAll('#pcaGroupRows .pca-group-row');
+        const groupsMap = Array.from(groupRows).map(row => ({
+            name: row.querySelector('.pca-grp-name')?.value || '',
+            color: row.querySelector('.pca-grp-color')?.value || '#1f77b4',
+            indices: (row.querySelector('.pca-grp-indices')?.value || '')
+                .split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
+        })).filter(g => g.indices.length > 0);
+
         const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;
+
+        const toNum = (id) => { const v = document.getElementById(id)?.value; return v !== '' && v != null ? parseFloat(v) : null; };
 
         const payload = {
             chart_type: 'pca',
             data: allData,
             value_cols: valueCols,
-            group_col: groupCol,
+            groups_map: groupsMap,
             pc_x: pcX,
             pc_y: pcY,
             show_ellipse: showEllipse,
             show_labels: showLabels,
             show_grid: showGrid,
-            bold: boldConfig,
-            font_sizes: {
-                title: parseInt(document.getElementById('fsTitleSize')?.value) || 14,
-                axis_label: parseInt(document.getElementById('fsAxisLabel')?.value) || 12,
-                tick: parseInt(document.getElementById('fsTick')?.value) || 10,
-                legend: parseInt(document.getElementById('fsLegend')?.value) || 9,
-            }
+            x_min: toNum('pcaXMin'), x_max: toNum('pcaXMax'),
+            y_min: toNum('pcaYMin'), y_max: toNum('pcaYMax'),
+            axis_fontsize: parseInt(document.getElementById('pcaAxisFontSize')?.value) || 13,
+            axis_color: document.getElementById('pcaAxisColor')?.value || '#000000',
+            tick_fontsize: parseInt(document.getElementById('pcaTickFontSize')?.value) || 11,
+            tick_color: document.getElementById('pcaTickColor')?.value || '#000000',
+            label_fontsize: parseInt(document.getElementById('pcaLabelFontSize')?.value) || 8,
+            legend_fontsize: parseInt(document.getElementById('pcaLegendFontSize')?.value) || 10,
+            dot_size: parseInt(document.getElementById('pcaDotSize')?.value) || 60,
         };
 
         showLoading(true);
