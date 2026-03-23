@@ -1369,19 +1369,8 @@
 
                         <!-- 分组设置 -->
                         <div style="padding:0.6rem;background:#fef3c7;border-radius:6px;border:1px solid #f59e0b;">
-                            <div style="font-weight:600;margin-bottom:0.5rem;font-size:0.85rem;color:#92400e;">分组设置（为每行数据指定组名和颜色）</div>
-                            <div style="margin-bottom:0.5rem;display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
-                                <div>
-                                    <div class="plot-small-label">从列读取分组</div>
-                                    <select class="form-select" id="pcaGroupCol" style="min-width:120px;">
-                                        <option value="">手动设置</option>
-                                    </select>
-                                </div>
-                                <div style="align-self:flex-end;">
-                                    <button type="button" class="btn btn-secondary" id="pcaLoadGroupsBtn" style="padding:0.35rem 0.75rem;font-size:0.8rem;">从列加载分组</button>
-                                </div>
-                            </div>
-                            <div id="pcaGroupRows" style="max-height:200px;overflow-y:auto;"></div>
+                            <div style="font-weight:600;margin-bottom:0.5rem;font-size:0.85rem;color:#92400e;">分组设置（选择哪些数据行属于同一组，同组同色）</div>
+                            <div id="pcaGroupRows"></div>
                             <button type="button" class="btn btn-secondary" id="pcaAddGroupBtn" style="margin-top:0.5rem;padding:0.3rem 0.7rem;font-size:0.8rem;"><i class="fas fa-plus"></i> 添加组</button>
                         </div>
                     </div>
@@ -1482,6 +1471,6 @@
         <div class="loading-subtext">执行ANOVA检验、LSD检验、Duncan检验和方差齐性检验</div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=11"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=12"></script>
 </body>
 </html>

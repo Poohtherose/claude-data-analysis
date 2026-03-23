@@ -315,10 +315,6 @@ function updateColumnSelectors(columns, detected) {
         ).join('');
     }
     // 同步 PCA 列选择器
-    const pcaGroupSel = document.getElementById('pcaGroupCol');
-    if (pcaGroupSel) {
-        pcaGroupSel.innerHTML = '<option value="">不分组</option>' + getColumnOptions('');
-    }
     const pcaValSel = document.getElementById('pcaValueCols');
     if (pcaValSel && state.columns) {
         pcaValSel.innerHTML = state.columns.map(c =>
@@ -334,39 +330,49 @@ function updateColumnSelectors(columns, detected) {
 // PCA 分组管理
 const PCA_COLORS = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
 
-function pcaAddGroupRow(name='', color='', indicesStr='') {
+function pcaGetRowLabels() {
+    const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;
+    if (!allData || allData.length === 0) return [];
+    const firstCol = Object.keys(allData[0])[0];
+    return allData.map((row, i) => ({ idx: i, label: String(row[firstCol] ?? i) }));
+}
+
+function pcaAddGroupRow(name='', color='', selectedIndices=[]) {
     const container = document.getElementById('pcaGroupRows');
     if (!container) return;
-    const idx = container.querySelectorAll('.pca-group-row').length;
-    const c = color || PCA_COLORS[idx % PCA_COLORS.length];
+    const grpIdx = container.querySelectorAll('.pca-group-row').length;
+    const c = color || PCA_COLORS[grpIdx % PCA_COLORS.length];
+    const labels = pcaGetRowLabels();
+
     const row = document.createElement('div');
     row.className = 'pca-group-row';
-    row.style.cssText = 'display:grid;grid-template-columns:120px 40px 1fr 28px;gap:0.4rem;align-items:center;margin-bottom:0.4rem;';
+    row.style.cssText = 'border:1px solid #f0c060;border-radius:6px;padding:0.5rem;margin-bottom:0.5rem;background:#fffbeb;';
+
+    const selSet = new Set(selectedIndices.map(Number));
+    const optionsHtml = labels.map(({idx, label}) =>
+        `<label style="display:flex;align-items:center;gap:0.3rem;padding:1px 4px;cursor:pointer;font-size:0.82rem;white-space:nowrap;">
+            <input type="checkbox" class="pca-row-check" value="${idx}" ${selSet.has(idx)?'checked':''} style="cursor:pointer;">
+            <span>${escapeHtml(label)}</span>
+        </label>`
+    ).join('');
+
     row.innerHTML = `
-        <input type="text" class="pca-grp-name form-select" placeholder="组名" value="${escapeHtml(name)}" style="padding:0.3rem 0.5rem;font-size:0.82rem;">
-        <input type="color" class="pca-grp-color" value="${c}" style="height:32px;width:36px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;">
-        <input type="text" class="pca-grp-indices form-select" placeholder="行号(0起)，逗号分隔，如: 0,1,2" value="${escapeHtml(indicesStr)}" style="padding:0.3rem 0.5rem;font-size:0.82rem;">
-        <button type="button" style="background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.9rem;padding:0 6px;height:28px;" onclick="this.closest('.pca-group-row').remove()">×</button>`;
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+            <input type="text" class="pca-grp-name form-select" placeholder="组名" value="${escapeHtml(name)}" style="width:120px;padding:0.3rem 0.5rem;font-size:0.82rem;">
+            <input type="color" class="pca-grp-color" value="${c}" style="height:30px;width:36px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;">
+            <span style="font-size:0.78rem;color:#92400e;">选择属于此组的数据行：</span>
+            <button type="button" style="margin-left:auto;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem;padding:2px 8px;" onclick="this.closest('.pca-group-row').remove()">删除组</button>
+        </div>
+        <div class="pca-row-list" style="display:flex;flex-wrap:wrap;gap:2px;max-height:120px;overflow-y:auto;border:1px solid #e5c97a;border-radius:4px;padding:4px;background:#fff;">${optionsHtml}</div>`;
     container.appendChild(row);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('pcaAddGroupBtn')?.addEventListener('click', () => pcaAddGroupRow());
-    document.getElementById('pcaLoadGroupsBtn')?.addEventListener('click', () => {
-        const col = document.getElementById('pcaGroupCol')?.value;
-        if (!col) { showAlert('请先选择分组列', 'error'); return; }
-        const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;
-        // 按列值分组，收集行号
-        const groupMap = {};
-        allData.forEach((row, i) => {
-            const val = String(row[col] ?? '');
-            if (!groupMap[val]) groupMap[val] = [];
-            groupMap[val].push(i);
-        });
-        document.getElementById('pcaGroupRows').innerHTML = '';
-        Object.entries(groupMap).forEach(([name, indices]) => {
-            pcaAddGroupRow(name, '', indices.join(','));
-        });
+    document.getElementById('pcaAddGroupBtn')?.addEventListener('click', () => {
+        if (!state.previewData || state.previewData.length === 0) {
+            showAlert('请先上传数据文件', 'error'); return;
+        }
+        pcaAddGroupRow();
     });
 });
 
@@ -1135,13 +1141,12 @@ async function generatePlot() {
         const showLabels = document.getElementById('pcaShowLabels')?.checked ?? true;
         const showGrid = document.getElementById('pcaShowGrid')?.checked ?? true;
 
-        // 收集分组信息
+        // 收集分组信息（从勾选框读取）
         const groupRows = document.querySelectorAll('#pcaGroupRows .pca-group-row');
         const groupsMap = Array.from(groupRows).map(row => ({
             name: row.querySelector('.pca-grp-name')?.value || '',
             color: row.querySelector('.pca-grp-color')?.value || '#1f77b4',
-            indices: (row.querySelector('.pca-grp-indices')?.value || '')
-                .split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
+            indices: Array.from(row.querySelectorAll('.pca-row-check:checked')).map(cb => parseInt(cb.value))
         })).filter(g => g.indices.length > 0);
 
         const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;

@@ -2129,10 +2129,19 @@ def make_pca_plot(config):
     dot_size = int(config.get('dot_size', 60))
 
     df = pd.DataFrame(data)
+    # 强制转换所有列为数值，过滤掉全NaN列
+    df_num = df.apply(pd.to_numeric, errors='coerce')
     if not value_cols:
-        value_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+        value_cols = [c for c in df_num.columns if df_num[c].notna().any()]
+    else:
+        value_cols = [c for c in value_cols if c in df_num.columns]
 
-    X = df[value_cols].apply(pd.to_numeric, errors='coerce').dropna()
+    X = df_num[value_cols].dropna()
+    if len(X) == 0:
+        # 尝试逐行填充：用列均值填充NaN
+        X = df_num[value_cols].fillna(df_num[value_cols].mean())
+    if len(X) == 0:
+        raise ValueError('数值列数据为空，请检查所选列是否包含数值数据')
     valid_idx = list(X.index)
     n_components = max(pc_x, pc_y)
     X_scaled = StandardScaler().fit_transform(X)
