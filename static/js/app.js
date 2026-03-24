@@ -333,8 +333,9 @@ const PCA_COLORS = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b',
 function pcaGetRowLabels() {
     const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;
     if (!allData || allData.length === 0) return [];
-    const firstCol = Object.keys(allData[0])[0];
-    return allData.map((row, i) => ({ idx: i, label: String(row[firstCol] ?? i) }));
+    // 优先用样品名称列（sampleColumn选择器），否则用第一列
+    const sampleCol = document.getElementById('sampleColumn')?.value || Object.keys(allData[0])[0];
+    return allData.map((row, i) => ({ idx: i, label: String(row[sampleCol] ?? i) }));
 }
 
 function pcaAddGroupRow(name='', color='', selectedIndices=[]) {
@@ -1157,6 +1158,7 @@ async function generatePlot() {
             chart_type: 'pca',
             data: allData,
             value_cols: valueCols,
+            sample_col: document.getElementById('sampleColumn')?.value || '',
             groups_map: groupsMap,
             pc_x: pcX,
             pc_y: pcY,

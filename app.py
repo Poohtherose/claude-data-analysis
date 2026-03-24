@@ -2108,6 +2108,7 @@ def make_pca_plot(config):
 
     data = config.get('data', [])
     value_cols = config.get('value_cols', [])
+    sample_col = config.get('sample_col', '')
     # groups_map: [{name, color, indices}] — 手动分组
     groups_map = config.get('groups_map', [])
     pc_x = int(config.get('pc_x', 1))
@@ -2129,19 +2130,22 @@ def make_pca_plot(config):
     dot_size = int(config.get('dot_size', 60))
 
     df = pd.DataFrame(data)
-    # 强制转换所有列为数值，过滤掉全NaN列
     df_num = df.apply(pd.to_numeric, errors='coerce')
+    # 只保留至少有2个有效数值的列
     if not value_cols:
-        value_cols = [c for c in df_num.columns if df_num[c].notna().any()]
+        value_cols = [c for c in df_num.columns if df_num[c].notna().sum() >= 2]
     else:
-        value_cols = [c for c in value_cols if c in df_num.columns]
+        value_cols = [c for c in value_cols if c in df_num.columns and df_num[c].notna().sum() >= 2]
 
-    X = df_num[value_cols].dropna()
-    if len(X) == 0:
-        # 尝试逐行填充：用列均值填充NaN
-        X = df_num[value_cols].fillna(df_num[value_cols].mean())
-    if len(X) == 0:
-        raise ValueError('数值列数据为空，请检查所选列是否包含数值数据')
+    if not value_cols:
+        raise ValueError('没有找到有效的数值列，请检查数据或手动选择数值列')
+
+    # 用列均值填充NaN，再丢弃仍有NaN的行
+    X = df_num[value_cols].copy()
+    col_means = X.mean()
+    X = X.fillna(col_means).dropna()
+    if len(X) < 2:
+        raise ValueError('有效数据行数不足（至少需要2行），请检查所选列是否包含数值数据')
     valid_idx = list(X.index)
     n_components = max(pc_x, pc_y)
     X_scaled = StandardScaler().fit_transform(X)
@@ -2210,10 +2214,11 @@ def make_pca_plot(config):
         if show_labels:
             for j, vi in enumerate(idxs):
                 row_idx = valid_idx[vi]
-                lbl = str(df.loc[row_idx].name) if isinstance(df.index[row_idx], int) else str(row_idx)
-                # 用第一列作为标签（更直观）
-                first_col_val = str(df.iloc[row_idx, 0]) if len(df.columns) > 0 else lbl
-                ax.annotate(first_col_val, (gx[j], gy[j]),
+                if sample_col and sample_col in df.columns:
+                    lbl = str(df.loc[row_idx, sample_col])
+                else:
+                    lbl = str(df.iloc[row_idx, 0]) if len(df.columns) > 0 else str(row_idx)
+                ax.annotate(lbl, (gx[j], gy[j]),
                             fontsize=label_fontsize, xytext=(4, 3),
                             textcoords='offset points', color=color, zorder=4,
                             fontfamily=chinese_font or efont)
