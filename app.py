@@ -2171,7 +2171,7 @@ def make_pca_plot(config):
         groups_map = [{'name': 'All', 'color': '#1f77b4', 'indices': list(range(len(valid_idx)))}]
 
     # SIMCA 风格图形：宽扁比例
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
+    fig, ax = plt.subplots(figsize=(12, 6), dpi=150)
     fig.patch.set_facecolor('white')
     ax.set_facecolor('#f0f0f0' if show_bg else 'white')
 
@@ -2275,7 +2275,7 @@ def make_pca_plot(config):
     ax.text(0.5, -0.10, footer, transform=ax.transAxes, ha='center', va='top',
             fontsize=tick_fontsize - 1, fontfamily=efont, color='#444444')
 
-    plt.tight_layout(rect=[0, 0.06, 1, 1])
+    fig.subplots_adjust(bottom=0.12, right=0.78)
 
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
