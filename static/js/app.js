@@ -333,8 +333,8 @@ const PCA_COLORS = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b',
 function pcaGetRowLabels() {
     const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;
     if (!allData || allData.length === 0) return [];
-    const firstCol = Object.keys(allData[0])[0];
-    return allData.map((row, i) => ({ idx: i, label: String(row[firstCol] ?? i) }));
+    const sampleCol = document.getElementById('sampleColumn')?.value || Object.keys(allData[0])[0];
+    return allData.map((row, i) => ({ idx: i, label: String(row[sampleCol] ?? i) }));
 }
 
 function pcaAddGroupRow(name='', color='', selectedIndices=[]) {
@@ -1153,10 +1153,11 @@ async function generatePlot() {
 
         const toNum = (id) => { const v = document.getElementById(id)?.value; return v !== '' && v != null ? parseFloat(v) : null; };
 
-        const payload = {
+     const payload = {
             chart_type: 'pca',
             data: allData,
             value_cols: valueCols,
+            sample_col: document.getElementById('sampleColumn')?.value || '',
             groups_map: groupsMap,
             pc_x: pcX,
             pc_y: pcY,
