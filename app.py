@@ -2275,7 +2275,7 @@ def make_pca_plot(config):
     ax.text(0.5, -0.10, footer, transform=ax.transAxes, ha='center', va='top',
             fontsize=tick_fontsize - 1, fontfamily=efont, color='#444444')
 
-    plt.tight_layout(rect=[0, 0.06, 0.85, 1])
+    plt.tight_layout(rect=[0, 0.06, 1, 1])
 
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
