@@ -2115,9 +2115,10 @@ def make_pca_plot(config):
     pc_y = int(config.get('pc_y', 2))
     show_ellipse = config.get('show_ellipse', True)
     show_labels = config.get('show_labels', True)
-    label_mode = config.get('label_mode', 'auto')  # 'auto','custom','none'
+    label_mode = config.get('label_mode', 'auto')
     xlabel_custom = config.get('xlabel', '')
     ylabel_custom = config.get('ylabel', '')
+    show_bg = config.get('show_bg', True)
     show_grid = config.get('show_grid', True)
     title = config.get('title', '')
     x_min = config.get('x_min', None)
@@ -2172,7 +2173,7 @@ def make_pca_plot(config):
     # SIMCA 风格图形：宽扁比例
     fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
     fig.patch.set_facecolor('white')
-    ax.set_facecolor('#f0f0f0')  # SIMCA 浅灰背景
+    ax.set_facecolor('#f0f0f0' if show_bg else 'white')
 
     for spine in ax.spines.values():
         spine.set_linewidth(0.8)
@@ -2258,8 +2259,8 @@ def make_pca_plot(config):
     if title:
         ax.set_title(title, fontsize=axis_fontsize + 1, fontfamily=chinese_font or efont)
 
-    # 图例（右侧外部，SIMCA风格）
-    if any(grp.get('name') for grp in groups_map):
+    # 图例（右侧外部，始终显示）
+    if groups_map:
         leg = ax.legend(fontsize=legend_fontsize, frameon=True, framealpha=0.95,
                   edgecolor='#cccccc', loc='upper left',
                   bbox_to_anchor=(1.01, 1), borderaxespad=0,

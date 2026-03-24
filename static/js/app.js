@@ -1202,6 +1202,7 @@ async function generatePlot() {
             show_labels: showLabels,
             label_mode: document.getElementById('pcaLabelMode')?.value || 'auto',
             show_grid: showGrid,
+            show_bg: document.getElementById('pcaShowBg')?.checked ?? true,
             x_min: toNum('pcaXMin'), x_max: toNum('pcaXMax'),
             y_min: toNum('pcaYMin'), y_max: toNum('pcaYMax'),
             axis_fontsize: parseInt(document.getElementById('pcaAxisFontSize')?.value) || 13,
