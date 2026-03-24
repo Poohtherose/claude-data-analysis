@@ -2131,7 +2131,8 @@ def make_pca_plot(config):
 
     df = pd.DataFrame(data)
     df_num = df.apply(pd.to_numeric, errors='coerce')
-    # 只保留至少有2个有效数值的列
+
+    # 确定数值列
     if not value_cols:
         value_cols = [c for c in df_num.columns if df_num[c].notna().sum() >= 2]
     else:
@@ -2140,13 +2141,16 @@ def make_pca_plot(config):
     if not value_cols:
         raise ValueError('没有找到有效的数值列，请检查数据或手动选择数值列')
 
-    # 用列均值填充NaN，再丢弃仍有NaN的行
-    X = df_num[value_cols].copy()
-    col_means = X.mean()
-    X = X.fillna(col_means).dropna()
+    # 每行是一个样本（指标），每列是一个特征（处理组）
+    X = df_num[value_cols].copy().fillna(df_num[value_cols].mean()).dropna()
+    # 样本名取第一个非数值列（指标名列，如 Primary ID）
+    label_col = sample_col if (sample_col and sample_col in df.columns) else df.columns[0]
+    sample_names = df.loc[X.index, label_col].astype(str).tolist()
+
     if len(X) < 2:
         raise ValueError('有效数据行数不足（至少需要2行），请检查所选列是否包含数值数据')
-    valid_idx = list(X.index)
+
+    valid_idx = list(range(len(X)))
     n_components = max(pc_x, pc_y)
     X_scaled = StandardScaler().fit_transform(X)
     pca = PCA(n_components=n_components)
@@ -2213,15 +2217,12 @@ def make_pca_plot(config):
 
         if show_labels:
             for j, vi in enumerate(idxs):
-                row_idx = valid_idx[vi]
-                if sample_col and sample_col in df.columns:
-                    lbl = str(df.loc[row_idx, sample_col])
-                else:
-                    lbl = str(df.iloc[row_idx, 0]) if len(df.columns) > 0 else str(row_idx)
+                lbl = sample_names[vi] if vi < len(sample_names) else str(vi)
                 ax.annotate(lbl, (gx[j], gy[j]),
-                            fontsize=label_fontsize, xytext=(4, 3),
+                            fontsize=label_fontsize, xytext=(5, 5),
                             textcoords='offset points', color=color, zorder=4,
-                            fontfamily=chinese_font or efont)
+                            fontfamily=chinese_font or efont,
+                            bbox=dict(boxstyle='round,pad=0.1', fc='white', ec='none', alpha=0.6))
 
         # 每组独立椭圆（虚线）
         if show_ellipse and len(idxs) >= 3:
@@ -2251,9 +2252,12 @@ def make_pca_plot(config):
 
     # 图例（右侧外部，SIMCA风格）
     if any(grp.get('name') for grp in groups_map):
-        ax.legend(fontsize=legend_fontsize, frameon=True, framealpha=0.95,
+        leg = ax.legend(fontsize=legend_fontsize, frameon=True, framealpha=0.95,
                   edgecolor='#cccccc', loc='upper left',
-                  bbox_to_anchor=(1.01, 1), borderaxespad=0)
+                  bbox_to_anchor=(1.01, 1), borderaxespad=0,
+                  prop={'family': chinese_font or efont, 'size': legend_fontsize})
+        for text in leg.get_texts():
+            text.set_fontfamily(chinese_font or efont)
 
     # Footer
     footer = f"R2X[{pc_x}] = {r2x[pc_x-1]:.4f}    R2X[{pc_y}] = {r2x[pc_y-1]:.4f}"

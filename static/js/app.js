@@ -333,9 +333,11 @@ const PCA_COLORS = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b',
 function pcaGetRowLabels() {
     const allData = state.allData && state.allData.length > 0 ? state.allData : state.previewData;
     if (!allData || allData.length === 0) return [];
-    // 优先用样品名称列（sampleColumn选择器），否则用第一列
-    const sampleCol = document.getElementById('sampleColumn')?.value || Object.keys(allData[0])[0];
-    return allData.map((row, i) => ({ idx: i, label: String(row[sampleCol] ?? i) }));
+    // 找第一个非数值列作为样本名列（通常是指标名列）
+    const firstRow = allData[0];
+    const cols = Object.keys(firstRow);
+    const labelCol = cols.find(c => isNaN(parseFloat(firstRow[c]))) || cols[0];
+    return allData.map((row, i) => ({ idx: i, label: String(row[labelCol] ?? i) }));
 }
 
 function pcaAddGroupRow(name='', color='', selectedIndices=[]) {
