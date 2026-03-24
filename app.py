@@ -2129,19 +2129,22 @@ def make_pca_plot(config):
     dot_size = int(config.get('dot_size', 60))
 
     df = pd.DataFrame(data)
-    # 强制转换所有列为数值，过滤掉全NaN列
     df_num = df.apply(pd.to_numeric, errors='coerce')
+    # 只保留至少有2个有效数值的列
     if not value_cols:
-        value_cols = [c for c in df_num.columns if df_num[c].notna().any()]
+        value_cols = [c for c in df_num.columns if df_num[c].notna().sum() >= 2]
     else:
-        value_cols = [c for c in value_cols if c in df_num.columns]
+        value_cols = [c for c in value_cols if c in df_num.columns and df_num[c].notna().sum() >= 2]
 
-    X = df_num[value_cols].dropna()
-    if len(X) == 0:
-        # 尝试逐行填充：用列均值填充NaN
-        X = df_num[value_cols].fillna(df_num[value_cols].mean())
-    if len(X) == 0:
-        raise ValueError('数值列数据为空，请检查所选列是否包含数值数据')
+    if not value_cols:
+        raise ValueError('没有找到有效的数值列，请检查数据或手动选择数值列')
+
+    # 用列均值填充NaN，再丢弃仍有NaN的行
+    X = df_num[value_cols].copy()
+    col_means = X.mean()
+    X = X.fillna(col_means).dropna()
+    if len(X) < 2:
+        raise ValueError('有效数据行数不足（至少需要2行），请检查所选列是否包含数值数据')
     valid_idx = list(X.index)
     n_components = max(pc_x, pc_y)
     X_scaled = StandardScaler().fit_transform(X)
