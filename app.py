@@ -2141,25 +2141,10 @@ def make_pca_plot(config):
     if not value_cols:
         raise ValueError('没有找到有效的数值列，请检查数据或手动选择数值列')
 
-    transpose_data = config.get('transpose_data', None)
-    n_rows = df_num[value_cols].dropna(how='all').shape[0]
-    n_cols = len(value_cols)
-    if transpose_data is None:
-        transpose_data = (n_cols < n_rows)
-
-    if transpose_data:
-        label_col = sample_col if (sample_col and sample_col in df.columns) else df.columns[0]
-        row_labels = df[label_col].astype(str).tolist()
-        X_T = df_num[value_cols].T
-        X_T.columns = row_labels
-        sample_names = list(X_T.index)
-        X = X_T.apply(pd.to_numeric, errors='coerce').fillna(0)
-    else:
+      # 每行是一个样本（指标），每列是一个特征（处理组）
         X = df_num[value_cols].copy().fillna(df_num[value_cols].mean()).dropna()
-        if sample_col and sample_col in df.columns:
-            sample_names = df.loc[X.index, sample_col].astype(str).tolist()
-        else:
-            sample_names = df.iloc[X.index, 0].astype(str).tolist()
+        label_col = sample_col if (sample_col and sample_col in df.columns) else df.columns[0]
+        sample_names = df.loc[X.index, label_col].astype(str).tolist()tolist()
 
     if len(X) < 2:
         raise ValueError('有效数据行数不足（至少需要2行），请检查所选列是否包含数值数据')
