@@ -2131,7 +2131,8 @@ def make_pca_plot(config):
 
     df = pd.DataFrame(data)
     df_num = df.apply(pd.to_numeric, errors='coerce')
-    # 只保留至少有2个有效数值的列
+
+    # 确定数值列
     if not value_cols:
         value_cols = [c for c in df_num.columns if df_num[c].notna().sum() >= 2]
     else:
@@ -2140,13 +2141,30 @@ def make_pca_plot(config):
     if not value_cols:
         raise ValueError('没有找到有效的数值列，请检查数据或手动选择数值列')
 
-    # 用列均值填充NaN，再丢弃仍有NaN的行
-    X = df_num[value_cols].copy()
-    col_means = X.mean()
-    X = X.fillna(col_means).dropna()
+    transpose_data = config.get('transpose_data', None)
+    n_rows = df_num[value_cols].dropna(how='all').shape[0]
+    n_cols = len(value_cols)
+    if transpose_data is None:
+        transpose_data = (n_cols < n_rows)
+
+    if transpose_data:
+        label_col = sample_col if (sample_col and sample_col in df.columns) else df.columns[0]
+        row_labels = df[label_col].astype(str).tolist()
+        X_T = df_num[value_cols].T
+        X_T.columns = row_labels
+        sample_names = list(X_T.index)
+        X = X_T.apply(pd.to_numeric, errors='coerce').fillna(0)
+    else:
+        X = df_num[value_cols].copy().fillna(df_num[value_cols].mean()).dropna()
+        if sample_col and sample_col in df.columns:
+            sample_names = df.loc[X.index, sample_col].astype(str).tolist()
+        else:
+            sample_names = df.iloc[X.index, 0].astype(str).tolist()
+
     if len(X) < 2:
         raise ValueError('有效数据行数不足（至少需要2行），请检查所选列是否包含数值数据')
-    valid_idx = list(X.index)
+
+    valid_idx = list(range(len(X)))
     n_components = max(pc_x, pc_y)
     X_scaled = StandardScaler().fit_transform(X)
     pca = PCA(n_components=n_components)
