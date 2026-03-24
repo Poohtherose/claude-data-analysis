@@ -2115,6 +2115,9 @@ def make_pca_plot(config):
     pc_y = int(config.get('pc_y', 2))
     show_ellipse = config.get('show_ellipse', True)
     show_labels = config.get('show_labels', True)
+    label_mode = config.get('label_mode', 'auto')  # 'auto','custom','none'
+    xlabel_custom = config.get('xlabel', '')
+    ylabel_custom = config.get('ylabel', '')
     show_grid = config.get('show_grid', True)
     title = config.get('title', '')
     x_min = config.get('x_min', None)
@@ -2215,9 +2218,12 @@ def make_pca_plot(config):
         ax.scatter(gx, gy, s=dot_size, color=color, label=name,
                    edgecolors='white', linewidths=0.6, zorder=3)
 
-        if show_labels:
+        if show_labels and label_mode != 'none':
             for j, vi in enumerate(idxs):
-                lbl = sample_names[vi] if vi < len(sample_names) else str(vi)
+                if label_mode == 'custom':
+                    lbl = name  # 显示组名作为标签
+                else:
+                    lbl = sample_names[vi] if vi < len(sample_names) else str(vi)
                 ax.annotate(lbl, (gx[j], gy[j]),
                             fontsize=label_fontsize, xytext=(5, 5),
                             textcoords='offset points', color=color, zorder=4,
@@ -2241,8 +2247,10 @@ def make_pca_plot(config):
     if y_min is not None: ax.set_ylim(bottom=float(y_min))
     if y_max is not None: ax.set_ylim(top=float(y_max))
 
-    ax.set_xlabel(f't[{pc_x}]', fontsize=axis_fontsize, color=axis_color, fontfamily=efont)
-    ax.set_ylabel(f't[{pc_y}]', fontsize=axis_fontsize, color=axis_color, fontfamily=efont)
+    xlabel = (xlabel_custom or f't[{pc_x}]')
+    ylabel = (ylabel_custom or f't[{pc_y}]')
+    ax.set_xlabel(xlabel, fontsize=axis_fontsize, color=axis_color, fontfamily=chinese_font or efont)
+    ax.set_ylabel(ylabel, fontsize=axis_fontsize, color=axis_color, fontfamily=chinese_font or efont)
     ax.tick_params(labelsize=tick_fontsize, colors=tick_color)
     for tl in ax.get_xticklabels() + ax.get_yticklabels():
         tl.set_color(tick_color)

@@ -1287,11 +1287,19 @@
                                 </select>
                             </div>
                             <div>
+                                <div class="plot-small-label">X 轴标签文字</div>
+                                <input type="text" class="form-select" id="pcaXLabel" placeholder="留空自动" style="font-size:0.85rem;">
+                            </div>
+                            <div>
                                 <div class="plot-small-label">Y 轴主成分</div>
                                 <select class="form-select" id="pcaCompY">
                                     <option value="1">PC 1</option><option value="2" selected>PC 2</option>
                                     <option value="3">PC 3</option><option value="4">PC 4</option>
                                 </select>
+                            </div>
+                            <div>
+                                <div class="plot-small-label">Y 轴标签文字</div>
+                                <input type="text" class="form-select" id="pcaYLabel" placeholder="留空自动" style="font-size:0.85rem;">
                             </div>
                         </div>
 
@@ -1305,6 +1313,14 @@
                                 <input type="checkbox" id="pcaShowLabels" checked style="width:16px;height:16px;cursor:pointer;">
                                 <span style="font-size:0.85rem;font-weight:600;">显示样本标签</span>
                             </label>
+                            <div id="pcaLabelModeWrap" style="display:flex;align-items:center;gap:0.5rem;margin-left:1rem;">
+                                <span style="font-size:0.82rem;color:#555;">标签模式：</span>
+                                <select id="pcaLabelMode" class="form-select" style="font-size:0.82rem;padding:2px 6px;width:auto;">
+                                    <option value="auto">自动（组名）</option>
+                                    <option value="custom">自定义文字</option>
+                                    <option value="none">不显示</option>
+                                </select>
+                            </div>
                             <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
                                 <input type="checkbox" id="pcaShowGrid" checked style="width:16px;height:16px;cursor:pointer;">
                                 <span style="font-size:0.85rem;font-weight:600;">显示网格</span>
@@ -1471,6 +1487,6 @@
         <div class="loading-subtext">执行ANOVA检验、LSD检验、Duncan检验和方差齐性检验</div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=14"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=15"></script>
 </body>
 </html>

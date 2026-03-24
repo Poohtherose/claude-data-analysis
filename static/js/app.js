@@ -340,6 +340,35 @@ function pcaGetRowLabels() {
     return allData.map((row, i) => ({ idx: i, label: String(row[labelCol] ?? i) }));
 }
 
+// 获取所有已被其他组选中的idx集合
+function pcaGetUsedIndices(excludeRow) {
+    const used = new Set();
+    document.querySelectorAll('#pcaGroupRows .pca-group-row').forEach(row => {
+        if (row === excludeRow) return;
+        row.querySelectorAll('.pca-row-check:checked').forEach(cb => used.add(parseInt(cb.value)));
+    });
+    return used;
+}
+
+// 刷新所有组的checkbox禁用状态
+function pcaRefreshDisabled() {
+    document.querySelectorAll('#pcaGroupRows .pca-group-row').forEach(row => {
+        const used = pcaGetUsedIndices(row);
+        row.querySelectorAll('.pca-row-check').forEach(cb => {
+            const idx = parseInt(cb.value);
+            if (used.has(idx) && !cb.checked) {
+                cb.disabled = true;
+                cb.parentElement.style.opacity = '0.35';
+                cb.parentElement.style.cursor = 'not-allowed';
+            } else {
+                cb.disabled = false;
+                cb.parentElement.style.opacity = '';
+                cb.parentElement.style.cursor = 'pointer';
+            }
+        });
+    });
+}
+
 function pcaAddGroupRow(name='', color='', selectedIndices=[]) {
     const container = document.getElementById('pcaGroupRows');
     if (!container) return;
@@ -364,10 +393,13 @@ function pcaAddGroupRow(name='', color='', selectedIndices=[]) {
             <input type="text" class="pca-grp-name form-select" placeholder="组名" value="${escapeHtml(name)}" style="width:120px;padding:0.3rem 0.5rem;font-size:0.82rem;">
             <input type="color" class="pca-grp-color" value="${c}" style="height:30px;width:36px;padding:1px;border:1px solid #ccc;border-radius:4px;cursor:pointer;">
             <span style="font-size:0.78rem;color:#92400e;">选择属于此组的数据行：</span>
-            <button type="button" style="margin-left:auto;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem;padding:2px 8px;" onclick="this.closest('.pca-group-row').remove()">删除组</button>
+            <button type="button" style="margin-left:auto;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem;padding:2px 8px;" onclick="this.closest('.pca-group-row').remove();pcaRefreshDisabled();">删除组</button>
         </div>
         <div class="pca-row-list" style="display:flex;flex-wrap:wrap;gap:2px;max-height:120px;overflow-y:auto;border:1px solid #e5c97a;border-radius:4px;padding:4px;background:#fff;">${optionsHtml}</div>`;
     container.appendChild(row);
+    // 监听勾选变化，刷新禁用状态
+    row.querySelectorAll('.pca-row-check').forEach(cb => cb.addEventListener('change', pcaRefreshDisabled));
+    pcaRefreshDisabled();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1164,8 +1196,11 @@ async function generatePlot() {
             groups_map: groupsMap,
             pc_x: pcX,
             pc_y: pcY,
+            xlabel: document.getElementById('pcaXLabel')?.value || '',
+            ylabel: document.getElementById('pcaYLabel')?.value || '',
             show_ellipse: showEllipse,
             show_labels: showLabels,
+            label_mode: document.getElementById('pcaLabelMode')?.value || 'auto',
             show_grid: showGrid,
             x_min: toNum('pcaXMin'), x_max: toNum('pcaXMax'),
             y_min: toNum('pcaYMin'), y_max: toNum('pcaYMax'),
