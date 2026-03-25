@@ -2279,9 +2279,9 @@ def make_pca_plot(config):
         ylim = ax.get_ylim()
         xspan = xlim[1] - xlim[0]
         yspan = ylim[1] - ylim[0]
-        # 初始偏移：每个标签从圆点向外偏移
-        offset_x = xspan * 0.05
-        offset_y = yspan * 0.05
+        # 初始偏移：每个标签从自身圆点向外偏移一小段
+        offset_x = xspan * 0.02
+        offset_y = yspan * 0.02
         placed = []  # list of (txt_obj, px, py) where px,py = point coords
         for (px, py, lbl, color) in _label_data:
             # 初始方向：远离所有点的质心
@@ -2299,25 +2299,22 @@ def make_pca_plot(config):
                         bbox=dict(boxstyle='round,pad=0.1', fc='white', ec='none', alpha=0.7))
             placed.append((t, px, py))
 
-        # 迭代推开：文字bbox不得与任何圆点或其他文字重叠
-        dot_r_x = xspan * 0.012  # 圆点半径（数据坐标近似）
-        dot_r_y = yspan * 0.012
+        # 迭代推开：标签bbox只排斥自身对应圆点 + 其他标签bbox
         for _ in range(60):
             moved = False
             bboxes = [t.get_window_extent(renderer) for t, _, _ in placed]
             for i, (t, px, py) in enumerate(placed):
                 bb = bboxes[i]
                 fx, fy = 0.0, 0.0
-                # 排斥：与所有圆点
-                for qx, qy in zip(_pt_x, _pt_y):
-                    qd = ax.transData.transform((qx, qy))
-                    dx = bb.x0 + bb.width/2 - qd[0]
-                    dy = bb.y0 + bb.height/2 - qd[1]
-                    dist = (dx**2 + dy**2) ** 0.5 or 1
-                    overlap = (bb.width/2 + 18) - dist  # 18px = dot radius + label border gap
-                    if overlap > 0:
-                        fx += dx / dist * overlap * 0.4
-                        fy += dy / dist * overlap * 0.4
+                # 只排斥自身对应圆点
+                qd = ax.transData.transform((px, py))
+                dx = bb.x0 + bb.width/2 - qd[0]
+                dy = bb.y0 + bb.height/2 - qd[1]
+                dist = (dx**2 + dy**2) ** 0.5 or 1
+                overlap = (bb.width/2 + 14) - dist  # 14px = dot半径 + 间隙
+                if overlap > 0:
+                    fx += dx / dist * overlap * 0.5
+                    fy += dy / dist * overlap * 0.5
                 # 排斥：与其他文字bbox
                 for j, (t2, _, _) in enumerate(placed):
                     if i == j: continue
@@ -2332,7 +2329,6 @@ def make_pca_plot(config):
                     cur = ax.transData.transform(t.get_position())
                     new_disp = (cur[0]+fx, cur[1]+fy)
                     new_data = ax.transData.inverted().transform(new_disp)
-                    # 限制在坐标框内
                     new_data[0] = max(xlim[0], min(xlim[1], new_data[0]))
                     new_data[1] = max(ylim[0], min(ylim[1], new_data[1]))
                     t.set_position(new_data)
