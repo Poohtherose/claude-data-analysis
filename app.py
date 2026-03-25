@@ -2207,6 +2207,7 @@ def make_pca_plot(config):
     if show_ellipse:
         draw_hotelling_ellipse(np.column_stack([t_x, t_y]), '#888888', lw=1.8, ls='-')
 
+    _all_texts = []
     for grp in groups_map:
         idxs = [i for i in grp.get('indices', []) if i < len(valid_idx)]
         if not idxs:
@@ -2221,15 +2222,11 @@ def make_pca_plot(config):
 
         if show_labels and label_mode != 'none':
             for j, vi in enumerate(idxs):
-                if label_mode == 'custom':
-                    lbl = name  # 显示组名作为标签
-                else:
-                    lbl = sample_names[vi] if vi < len(sample_names) else str(vi)
-                ax.annotate(lbl, (gx[j], gy[j]),
-                            fontsize=label_fontsize, xytext=(5, 5),
-                            textcoords='offset points', color=color, zorder=4,
+                lbl = name if label_mode == 'custom' else (sample_names[vi] if vi < len(sample_names) else str(vi))
+                _all_texts.append(ax.text(gx[j], gy[j], lbl,
+                            fontsize=label_fontsize, color=color, zorder=4,
                             fontfamily=chinese_font or efont,
-                            bbox=dict(boxstyle='round,pad=0.1', fc='white', ec='none', alpha=0.6))
+                            bbox=dict(boxstyle='round,pad=0.1', fc='white', ec='none', alpha=0.6)))
 
         # 每组独立椭圆（虚线）
         if show_ellipse and len(idxs) >= 3:
@@ -2268,6 +2265,16 @@ def make_pca_plot(config):
                   prop={'family': chinese_font or efont, 'size': legend_fontsize})
         for text in leg.get_texts():
             text.set_fontfamily(chinese_font or efont)
+
+    # 标签防重叠
+    if _all_texts:
+        try:
+            from adjustText import adjust_text
+            adjust_text(_all_texts, ax=ax,
+                        expand_points=(1.5, 1.5),
+                        arrowprops=dict(arrowstyle='-', color='#aaaaaa', lw=0.5))
+        except ImportError:
+            pass
 
     # Footer
     footer = f"R2X[{pc_x}] = {r2x[pc_x-1]:.4f}    R2X[{pc_y}] = {r2x[pc_y-1]:.4f}"
