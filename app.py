@@ -2212,7 +2212,7 @@ def make_pca_plot(config):
         if not idxs:
             continue
         color = grp.get('color', '#1f77b4')
-        name = grp.get('name', '')
+        name = grp.get('name', '') or f'组{groups_map.index(grp)+1}'
         gx = t_x[idxs]
         gy = t_y[idxs]
 
@@ -2260,8 +2260,9 @@ def make_pca_plot(config):
         ax.set_title(title, fontsize=axis_fontsize + 1, fontfamily=chinese_font or efont)
 
     # 图例（右侧外部，始终显示）
-    if groups_map:
-        leg = ax.legend(fontsize=legend_fontsize, frameon=True, framealpha=0.95,
+    handles, labels = ax.get_legend_handles_labels()
+    if handles:
+        leg = ax.legend(handles, labels, fontsize=legend_fontsize, frameon=True, framealpha=0.95,
                   edgecolor='#cccccc', loc='upper left',
                   bbox_to_anchor=(1.01, 1), borderaxespad=0,
                   prop={'family': chinese_font or efont, 'size': legend_fontsize})
