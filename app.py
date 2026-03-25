@@ -2280,8 +2280,8 @@ def make_pca_plot(config):
         xspan = xlim[1] - xlim[0]
         yspan = ylim[1] - ylim[0]
         # 初始偏移：每个标签从圆点向外偏移
-        offset_x = xspan * 0.03
-        offset_y = yspan * 0.03
+        offset_x = xspan * 0.05
+        offset_y = yspan * 0.05
         placed = []  # list of (txt_obj, px, py) where px,py = point coords
         for (px, py, lbl, color) in _label_data:
             # 初始方向：远离所有点的质心
@@ -2314,7 +2314,7 @@ def make_pca_plot(config):
                     dx = bb.x0 + bb.width/2 - qd[0]
                     dy = bb.y0 + bb.height/2 - qd[1]
                     dist = (dx**2 + dy**2) ** 0.5 or 1
-                    overlap = (bb.width/2 + 8) - dist  # 8px = dot radius approx
+                    overlap = (bb.width/2 + 18) - dist  # 18px = dot radius + label border gap
                     if overlap > 0:
                         fx += dx / dist * overlap * 0.4
                         fy += dy / dist * overlap * 0.4
