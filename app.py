@@ -2300,8 +2300,9 @@ def make_pca_plot(config):
             placed.append((t, px, py))
 
         # 迭代推开：标签bbox只排斥自身对应圆点 + 其他标签bbox
-        for _ in range(60):
+        for _ in range(200):
             moved = False
+            fig.canvas.draw()
             bboxes = [t.get_window_extent(renderer) for t, _, _ in placed]
             for i, (t, px, py) in enumerate(placed):
                 bb = bboxes[i]
@@ -2311,20 +2312,25 @@ def make_pca_plot(config):
                 dx = bb.x0 + bb.width/2 - qd[0]
                 dy = bb.y0 + bb.height/2 - qd[1]
                 dist = (dx**2 + dy**2) ** 0.5 or 1
-                overlap = (bb.width/2 + 14) - dist  # 14px = dot半径 + 间隙
+                overlap = (bb.width/2 + 14) - dist
                 if overlap > 0:
                     fx += dx / dist * overlap * 0.5
                     fy += dy / dist * overlap * 0.5
-                # 排斥：与其他文字bbox
+                # 排斥：与其他文字bbox（基于实际重叠量，力度更强）
                 for j, (t2, _, _) in enumerate(placed):
                     if i == j: continue
                     bb2 = bboxes[j]
-                    if bb.overlaps(bb2):
+                    ox = min(bb.x1, bb2.x1) - max(bb.x0, bb2.x0)
+                    oy = min(bb.y1, bb2.y1) - max(bb.y0, bb2.y0)
+                    if ox > 0 and oy > 0:
                         dx = (bb.x0+bb.width/2) - (bb2.x0+bb2.width/2)
                         dy = (bb.y0+bb.height/2) - (bb2.y0+bb2.height/2)
                         dist = (dx**2+dy**2)**0.5 or 1
-                        fx += dx/dist * 3
-                        fy += dy/dist * 3
+                        # 沿最短轴推开
+                        if ox < oy:
+                            fx += (1 if dx >= 0 else -1) * ox * 0.6
+                        else:
+                            fy += (1 if dy >= 0 else -1) * oy * 0.6
                 if abs(fx) > 0.1 or abs(fy) > 0.1:
                     cur = ax.transData.transform(t.get_position())
                     new_disp = (cur[0]+fx, cur[1]+fy)
