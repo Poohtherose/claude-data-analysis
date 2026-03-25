@@ -2208,6 +2208,7 @@ def make_pca_plot(config):
         draw_hotelling_ellipse(np.column_stack([t_x, t_y]), '#888888', lw=1.8, ls='-')
 
     _all_texts = []
+    _pt_x, _pt_y = [], []
     for grp in groups_map:
         idxs = [i for i in grp.get('indices', []) if i < len(valid_idx)]
         if not idxs:
@@ -2219,6 +2220,8 @@ def make_pca_plot(config):
 
         ax.scatter(gx, gy, s=dot_size, color=color, label=name,
                    edgecolors='white', linewidths=0.6, zorder=3)
+        _pt_x.extend(gx.tolist())
+        _pt_y.extend(gy.tolist())
 
         if show_labels and label_mode != 'none':
             for j, vi in enumerate(idxs):
@@ -2270,21 +2273,19 @@ def make_pca_plot(config):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # 标签防重叠（避开圆点，限制在坐标框内）
+    # 标签防重叠（避开圆点，限制在坐标框内，无连接线）
     if _all_texts:
         try:
             from adjustText import adjust_text
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
-            all_x = [t.get_position()[0] for t in _all_texts]
-            all_y = [t.get_position()[1] for t in _all_texts]
-            adjust_text(_all_texts, x=all_x, y=all_y, ax=ax,
-                        expand_points=(2.0, 2.0),
-                        expand_text=(1.4, 1.4),
-                        force_points=(0.8, 0.8),
+            adjust_text(_all_texts, x=_pt_x, y=_pt_y, ax=ax,
+                        expand_points=(2.5, 2.5),
+                        expand_text=(1.3, 1.3),
+                        force_points=(1.0, 1.0),
+                        force_text=(0.5, 0.5),
                         only_move={'points': 'xy', 'texts': 'xy'},
-                        xlims=xlim, ylims=ylim,
-                        arrowprops=dict(arrowstyle='-', color='#aaaaaa', lw=0.5))
+                        xlims=xlim, ylims=ylim)
         except ImportError:
             pass
 
