@@ -2209,6 +2209,7 @@ def make_pca_plot(config):
 
     _all_texts = []
     _pt_x, _pt_y = [], []
+    _label_data = []  # (x, y, label, color) for deferred placement
     for grp in groups_map:
         idxs = [i for i in grp.get('indices', []) if i < len(valid_idx)]
         if not idxs:
@@ -2226,10 +2227,7 @@ def make_pca_plot(config):
         if show_labels and label_mode != 'none':
             for j, vi in enumerate(idxs):
                 lbl = name if label_mode == 'custom' else (sample_names[vi] if vi < len(sample_names) else str(vi))
-                _all_texts.append(ax.text(gx[j], gy[j], lbl,
-                            fontsize=label_fontsize, color=color, zorder=4,
-                            fontfamily=chinese_font or efont,
-                            bbox=dict(boxstyle='round,pad=0.1', fc='white', ec='none', alpha=0.6)))
+                _label_data.append((gx[j], gy[j], lbl, color))
 
         # 每组独立椭圆（虚线）
         if show_ellipse and len(idxs) >= 3:
@@ -2273,21 +2271,74 @@ def make_pca_plot(config):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # 标签防重叠（避开圆点，限制在坐标框内，无连接线）
-    if _all_texts:
-        try:
-            from adjustText import adjust_text
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            adjust_text(_all_texts, x=_pt_x, y=_pt_y, ax=ax,
-                        expand_points=(2.5, 2.5),
-                        expand_text=(1.3, 1.3),
-                        force_points=(1.0, 1.0),
-                        force_text=(0.5, 0.5),
-                        only_move={'points': 'xy', 'texts': 'xy'},
-                        xlims=xlim, ylims=ylim)
-        except ImportError:
-            pass
+    # 标签放置：先渲染再用renderer计算bbox，迭代推开重叠
+    if _label_data and show_labels and label_mode != 'none':
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        xspan = xlim[1] - xlim[0]
+        yspan = ylim[1] - ylim[0]
+        # 初始偏移：每个标签从圆点向外偏移
+        offset_x = xspan * 0.03
+        offset_y = yspan * 0.03
+        placed = []  # list of (txt_obj, px, py) where px,py = point coords
+        for (px, py, lbl, color) in _label_data:
+            # 初始方向：远离所有点的质心
+            if len(_pt_x) > 1:
+                cx = sum(_pt_x) / len(_pt_x)
+                cy = sum(_pt_y) / len(_pt_y)
+                dx = px - cx; dy = py - cy
+                norm = (dx**2 + dy**2) ** 0.5 or 1
+                tx = px + offset_x * dx / norm * 2
+                ty = py + offset_y * dy / norm * 2
+            else:
+                tx, ty = px + offset_x, py + offset_y
+            t = ax.text(tx, ty, lbl, fontsize=label_fontsize, color=color, zorder=4,
+                        fontfamily=chinese_font or efont,
+                        bbox=dict(boxstyle='round,pad=0.1', fc='white', ec='none', alpha=0.7))
+            placed.append((t, px, py))
+
+        # 迭代推开：文字bbox不得与任何圆点或其他文字重叠
+        dot_r_x = xspan * 0.012  # 圆点半径（数据坐标近似）
+        dot_r_y = yspan * 0.012
+        for _ in range(60):
+            moved = False
+            bboxes = [t.get_window_extent(renderer) for t, _, _ in placed]
+            for i, (t, px, py) in enumerate(placed):
+                bb = bboxes[i]
+                fx, fy = 0.0, 0.0
+                # 排斥：与所有圆点
+                for qx, qy in zip(_pt_x, _pt_y):
+                    qd = ax.transData.transform((qx, qy))
+                    dx = bb.x0 + bb.width/2 - qd[0]
+                    dy = bb.y0 + bb.height/2 - qd[1]
+                    dist = (dx**2 + dy**2) ** 0.5 or 1
+                    overlap = (bb.width/2 + 8) - dist  # 8px = dot radius approx
+                    if overlap > 0:
+                        fx += dx / dist * overlap * 0.4
+                        fy += dy / dist * overlap * 0.4
+                # 排斥：与其他文字bbox
+                for j, (t2, _, _) in enumerate(placed):
+                    if i == j: continue
+                    bb2 = bboxes[j]
+                    if bb.overlaps(bb2):
+                        dx = (bb.x0+bb.width/2) - (bb2.x0+bb2.width/2)
+                        dy = (bb.y0+bb.height/2) - (bb2.y0+bb2.height/2)
+                        dist = (dx**2+dy**2)**0.5 or 1
+                        fx += dx/dist * 3
+                        fy += dy/dist * 3
+                if abs(fx) > 0.1 or abs(fy) > 0.1:
+                    cur = ax.transData.transform(t.get_position())
+                    new_disp = (cur[0]+fx, cur[1]+fy)
+                    new_data = ax.transData.inverted().transform(new_disp)
+                    # 限制在坐标框内
+                    new_data[0] = max(xlim[0], min(xlim[1], new_data[0]))
+                    new_data[1] = max(ylim[0], min(ylim[1], new_data[1]))
+                    t.set_position(new_data)
+                    moved = True
+            if not moved:
+                break
 
     # Footer
     footer = f"R2X[{pc_x}] = {r2x[pc_x-1]:.4f}    R2X[{pc_y}] = {r2x[pc_y-1]:.4f}"
