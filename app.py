@@ -2300,7 +2300,9 @@ def make_pca_plot(config):
             placed.append((t, px, py))
 
         # 迭代推开：标签bbox只排斥自身对应圆点 + 其他标签bbox
-        for _ in range(200):
+        import time as _time; _t0 = _time.time()
+        for _ in range(100):
+            if _time.time() - _t0 > 3: break  # 最多3秒
             moved = False
             bboxes = [t.get_window_extent(renderer) for t, _, _ in placed]
             for i, (t, px, py) in enumerate(placed):
