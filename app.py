@@ -2266,12 +2266,24 @@ def make_pca_plot(config):
         for text in leg.get_texts():
             text.set_fontfamily(chinese_font or efont)
 
-    # 标签防重叠
+    # 去掉上边框和右边框
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # 标签防重叠（避开圆点，限制在坐标框内）
     if _all_texts:
         try:
             from adjustText import adjust_text
-            adjust_text(_all_texts, ax=ax,
-                        expand_points=(1.5, 1.5),
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
+            all_x = [t.get_position()[0] for t in _all_texts]
+            all_y = [t.get_position()[1] for t in _all_texts]
+            adjust_text(_all_texts, x=all_x, y=all_y, ax=ax,
+                        expand_points=(2.0, 2.0),
+                        expand_text=(1.4, 1.4),
+                        force_points=(0.8, 0.8),
+                        only_move={'points': 'xy', 'texts': 'xy'},
+                        xlims=xlim, ylims=ylim,
                         arrowprops=dict(arrowstyle='-', color='#aaaaaa', lw=0.5))
         except ImportError:
             pass
