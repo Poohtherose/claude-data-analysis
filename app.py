@@ -2302,7 +2302,6 @@ def make_pca_plot(config):
         # 迭代推开：标签bbox只排斥自身对应圆点 + 其他标签bbox
         for _ in range(200):
             moved = False
-            fig.canvas.draw()
             bboxes = [t.get_window_extent(renderer) for t, _, _ in placed]
             for i, (t, px, py) in enumerate(placed):
                 bb = bboxes[i]
