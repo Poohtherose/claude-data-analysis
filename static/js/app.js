@@ -166,6 +166,12 @@ async function readFileColumns(file) {
     console.log('Reading file columns...');
     showLoading(true);
 
+    // Render 免费服务器冷启动提示
+    const wakeupHint = setTimeout(() => {
+        const subtext = document.querySelector('.loading-subtext');
+        if (subtext) subtext.textContent = '服务器正在唤醒中，首次请求可能需要 30-60 秒，请耐心等待...';
+    }, 8000);
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -174,7 +180,7 @@ async function readFileColumns(file) {
     const timeoutId = setTimeout(() => {
         console.log('Request timeout, aborting...');
         controller.abort();
-    }, 30000); // 30秒超时
+    }, 90000); // 90秒超时（Render免费服务器冷启动需要约60秒）
 
     try {
         console.log('Sending request to /get_columns...');
@@ -229,13 +235,16 @@ async function readFileColumns(file) {
         console.error('Error reading file:', error);
 
         if (error.name === 'AbortError') {
-            showAlert('请求超时，请检查服务器是否正常运行', 'error');
+            showAlert('请求超时，服务器可能仍在冷启动中，请稍后重试', 'error');
         } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
             showAlert('无法连接到服务器，请确保服务器已启动 (python app.py)', 'error');
         } else {
             showAlert('读取文件失败: ' + error.message, 'error');
         }
     } finally {
+        clearTimeout(wakeupHint);
+        const subtext = document.querySelector('.loading-subtext');
+        if (subtext) subtext.textContent = '执行ANOVA检验、LSD检验、Duncan检验和方差齐性检验';
         showLoading(false);
     }
 }
@@ -493,7 +502,7 @@ async function performAnalysis() {
     const timeoutId = setTimeout(() => {
         console.log('Analysis timeout, aborting...');
         controller.abort();
-    }, 60000); // 60秒超时
+    }, 120000); // 120秒超时（Render冷启动+分析时间）
 
     try {
         console.log('Sending request to /upload...');
@@ -755,7 +764,7 @@ async function downloadReport() {
     const timeoutId = setTimeout(() => {
         console.log('Download timeout, aborting...');
         controller.abort();
-    }, 60000); // 60秒超时
+    }, 120000); // 120秒超时（Render冷启动+分析时间）
 
     try {
         const response = await fetch('/download_report', {
