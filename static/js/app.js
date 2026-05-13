@@ -1339,18 +1339,47 @@ async function generatePlot() {
         const yMaxVal = document.getElementById('radarYMax')?.value;
         const yStepVal = document.getElementById('radarYStep')?.value;
 
+        // 如果有分析结果的 summary_table，用均值数据构建雷达图
+        // summary_table 格式：[{sample:"CK", W1C_mean:0.09, W5S_mean:42.2, ...}, ...]
+        // 转换为：[{indicator:"W1C", CK:0.09, W:0.12, ...}, ...]（行=指标，列=样品）
+        let radarData = state.previewData;
+        let radarAxesCol = xCol;
+        let radarSeriesCols = seriesCols;
+        let radarTranspose = shouldTranspose;
+
+        const st = state.analysisResults && state.analysisResults.summary_table;
+        if (st && st.length > 0) {
+            const samples = st.map(r => r.sample);
+            // seriesCols 是用户选的原始指标列名（如 W1C, W5S...）
+            // summary_table 里对应 W1C_mean, W5S_mean...
+            const indicators = seriesCols.filter(c => st[0].hasOwnProperty(c + '_mean'));
+            if (indicators.length > 0) {
+                radarData = indicators.map(ind => {
+                    const row = { indicator: ind };
+                    samples.forEach(s => {
+                        const match = st.find(r => r.sample === s);
+                        row[s] = match ? match[ind + '_mean'] : null;
+                    });
+                    return row;
+                });
+                radarAxesCol = 'indicator';
+                radarSeriesCols = samples;
+                radarTranspose = false;
+            }
+        }
+
         showLoading(true);
         try {
             const payload = {
                 chart_type: 'radar',
-                data: state.previewData,
-                axes_col: xCol,
-                series_cols: seriesCols,
+                data: radarData,
+                axes_col: radarAxesCol,
+                series_cols: radarSeriesCols,
                 colors: colors,
                 line_styles: lineStyles,
                 line_widths: lineWidths,
                 marker_styles: markerStyles,
-                transpose: shouldTranspose,
+                transpose: radarTranspose,
                 y_min: yMinVal !== '' ? parseFloat(yMinVal) : null,
                 y_max: yMaxVal !== '' ? parseFloat(yMaxVal) : null,
                 y_step: yStepVal !== '' ? parseFloat(yStepVal) : null,
