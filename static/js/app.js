@@ -1339,9 +1339,9 @@ async function generatePlot() {
         const yMaxVal = document.getElementById('radarYMax')?.value;
         const yStepVal = document.getElementById('radarYStep')?.value;
 
-        // 如果有分析结果的 summary_table，用均值数据构建雷达图
+        // 如果有分析结果的 summary_table，直接用均值数据构建雷达图（忽略用户的列选择）
         // summary_table 格式：[{sample:"CK", W1C_mean:0.09, W5S_mean:42.2, ...}, ...]
-        // 转换为：[{indicator:"W1C", CK:0.09, W:0.12, ...}, ...]（行=指标，列=样品）
+        // 构建为：[{indicator:"W1C", CK:0.09, W:0.12, ...}, ...]（行=指标，列=样品）
         let radarData = state.previewData;
         let radarAxesCol = xCol;
         let radarSeriesCols = seriesCols;
@@ -1349,12 +1349,13 @@ async function generatePlot() {
 
         const st = state.analysisResults && state.analysisResults.summary_table;
         if (st && st.length > 0) {
+            // 从 summary_table 提取所有指标名（去掉 _mean 后缀）
+            const allKeys = Object.keys(st[0]).filter(k => k !== 'sample' && k.endsWith('_mean'));
+            const allIndicators = allKeys.map(k => k.replace(/_mean$/, ''));
             const samples = st.map(r => r.sample);
-            // seriesCols 是用户选的原始指标列名（如 W1C, W5S...）
-            // summary_table 里对应 W1C_mean, W5S_mean...
-            const indicators = seriesCols.filter(c => st[0].hasOwnProperty(c + '_mean'));
-            if (indicators.length > 0) {
-                radarData = indicators.map(ind => {
+
+            if (allIndicators.length > 0 && samples.length > 0) {
+                radarData = allIndicators.map(ind => {
                     const row = { indicator: ind };
                     samples.forEach(s => {
                         const match = st.find(r => r.sample === s);
