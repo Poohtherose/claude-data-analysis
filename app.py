@@ -1710,28 +1710,23 @@ def make_radar_chart(config):
 
     # 如果需要转置
     if transpose:
-        # 原始数据：行为样品，列为指标
-        # 转置后：行为指标，列为样品
-        # axes_col 变成第一列（指标名称）
-        # series_cols 变成行（样品名称）
-
-        # 提取需要的列
+        # 原始数据：行为样品（axes_col='sample'列），列为指标
+        # 目标：行为指标，列为样品（方便按列读取每个样品的值）
         transpose_cols = [axes_col] + series_cols
         df_subset = df[transpose_cols].copy()
 
-        # 转置：第一列变成列名，其他列变成行
-        df_transposed = df_subset.set_index(axes_col).T
-        df_transposed.reset_index(inplace=True)
-        df_transposed.rename(columns={'index': 'sample'}, inplace=True)
+        # 以样品列为索引转置：行变指标，列变样品
+        df_plot = df_subset.set_index(axes_col).T
+        df_plot.index.name = 'indicator'
+        df_plot.reset_index(inplace=True)
 
-        # 更新变量
-        df = df_transposed
-        axes_col = df.columns[1]  # 第一个指标列作为轴标签列
-        series_cols = df['sample'].tolist()  # 样品名称作为系列
-
-        # 重新构建数据：每行是一个指标，每列是一个样品
-        axes_labels = df.columns[1:].tolist()
+        # df_plot 结构：第一列 'indicator'（指标名），其余列为样品名
+        axes_labels = df_plot['indicator'].tolist()   # 指标名作为雷达轴
+        series_cols = df_plot.columns[1:].tolist()    # 样品名作为系列
         n_axes = len(axes_labels)
+        df = df_plot
+        # 保存原始数据用于 Excel 导出（行=样品，列=指标）
+        df_original = df_subset
     else:
         # 标准格式：行为指标，列为样品
         axes_labels = df[axes_col].tolist()
@@ -1747,19 +1742,9 @@ def make_radar_chart(config):
     y_max = config.get('y_max', None)
     if y_min is None or y_max is None:
         all_vals = []
-        if transpose:
-            for sample_name in series_cols:
-                sample_row = df[df['sample'] == sample_name]
-                if not sample_row.empty:
-                    for axis_label in axes_labels:
-                        if axis_label in sample_row.columns:
-                            v = pd.to_numeric(sample_row[axis_label].iloc[0], errors='coerce')
-                            if pd.notna(v):
-                                all_vals.append(v)
-        else:
-            for sc in series_cols:
-                if sc in df.columns:
-                    all_vals.extend(pd.to_numeric(df[sc], errors='coerce').dropna().tolist())
+        for sc in series_cols:
+            if sc in df.columns:
+                all_vals.extend(pd.to_numeric(df[sc], errors='coerce').dropna().tolist())
         if all_vals:
             data_min, data_max = min(all_vals), max(all_vals)
             span = data_max - data_min if data_max != data_min else 1
@@ -1786,71 +1771,28 @@ def make_radar_chart(config):
     ax.set_theta_zero_location('N')   # 0度在顶部
     ax.set_theta_direction(-1)        # 顺时针排列（与图1一致）
 
-    # 绘制每个系列
-    if transpose:
-        # 转置模式：series_cols 是样品名称，需要从 df 中找到对应的行
-        for si, sample_name in enumerate(series_cols):
-            # 找到该样品的行
-            sample_row = df[df['sample'] == sample_name]
-            if sample_row.empty:
-                continue
+    # 绘制每个系列（转置和标准模式下 series_cols 均为列名）
+    for si, series_col in enumerate(series_cols):
+        if series_col not in df.columns:
+            continue
 
-            # 提取所有指标列的值
-            values = []
-            for axis_label in axes_labels:
-                if axis_label in sample_row.columns:
-                    val = pd.to_numeric(sample_row[axis_label].iloc[0], errors='coerce')
-                    values.append(val if pd.notna(val) else 0)
-                else:
-                    values.append(0)
-            values += values[:1]  # 闭合
-            # 裁剪到y轴范围（此处先存储，后面统一裁剪）
-            values = [np.clip(v, y_min, y_max) for v in values]
+        values = pd.to_numeric(df[series_col], errors='coerce').tolist()
+        values += values[:1]  # 闭合
+        values = [np.clip(v, y_min, y_max) for v in values]
 
-            # 获取颜色
-            color = colors[si] if si < len(colors) and colors[si] else default_colors[si % len(default_colors)]
-            # 获取线条样式
-            linestyle = line_styles[si] if si < len(line_styles) and line_styles[si] else default_line_styles[si % len(default_line_styles)]
-            # 获取线条粗细
-            linewidth = float(line_widths[si]) if si < len(line_widths) and line_widths[si] else default_line_widths[si % len(default_line_widths)]
-            # 获取标记样式
-            marker = marker_styles[si] if si < len(marker_styles) and marker_styles[si] else default_markers[si % len(default_markers)]
+        color = colors[si] if si < len(colors) and colors[si] else default_colors[si % len(default_colors)]
+        linestyle = line_styles[si] if si < len(line_styles) and line_styles[si] else default_line_styles[si % len(default_line_styles)]
+        linewidth = float(line_widths[si]) if si < len(line_widths) and line_widths[si] else default_line_widths[si % len(default_line_widths)]
+        marker = marker_styles[si] if si < len(marker_styles) and marker_styles[si] else default_markers[si % len(default_markers)]
 
-            ax.plot(angles, values,
-                    color=color,
-                    linestyle=linestyle,
-                    linewidth=linewidth,
-                    marker=marker,
-                    markersize=6,
-                    label=strip_stat_suffix(sample_name))
-            ax.fill(angles, values, color=color, alpha=0.1)
-    else:
-        # 标准模式：series_cols 是列名
-        for si, series_col in enumerate(series_cols):
-            if series_col not in df.columns:
-                continue
-
-            values = pd.to_numeric(df[series_col], errors='coerce').tolist()
-            values += values[:1]  # 闭合
-            values = [np.clip(v, y_min, y_max) for v in values]
-
-            # 获取颜色
-            color = colors[si] if si < len(colors) and colors[si] else default_colors[si % len(default_colors)]
-            # 获取线条样式
-            linestyle = line_styles[si] if si < len(line_styles) and line_styles[si] else default_line_styles[si % len(default_line_styles)]
-            # 获取线条粗细
-            linewidth = float(line_widths[si]) if si < len(line_widths) and line_widths[si] else default_line_widths[si % len(default_line_widths)]
-            # 获取标记样式
-            marker = marker_styles[si] if si < len(marker_styles) and marker_styles[si] else default_markers[si % len(default_markers)]
-
-            ax.plot(angles, values,
-                    color=color,
-                    linestyle=linestyle,
-                    linewidth=linewidth,
-                    marker=marker,
-                    markersize=6,
-                    label=strip_stat_suffix(series_col))
-            ax.fill(angles, values, color=color, alpha=0.1)
+        ax.plot(angles, values,
+                color=color,
+                linestyle=linestyle,
+                linewidth=linewidth,
+                marker=marker,
+                markersize=6,
+                label=strip_stat_suffix(series_col))
+        ax.fill(angles, values, color=color, alpha=0.1)
 
     ax.set_ylim(y_min, y_max)
 
@@ -1961,10 +1903,9 @@ def make_radar_chart(config):
     # 生成 Excel
     excel_buf = io.BytesIO()
     if transpose:
-        # 转置模式：输出转置后的数据
-        out_df = df
+        # 转置模式：输出原始格式（行=样品，列=指标）
+        out_df = df_original
     else:
-        # 标准模式：输出原始数据
         out_df = df[[axes_col] + [c for c in series_cols if c in df.columns]]
     out_df.to_excel(excel_buf, index=False)
     excel_buf.seek(0)
