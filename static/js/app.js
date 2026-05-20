@@ -1590,6 +1590,10 @@ function showChartEditPanel(payload) {
     const bbox = payload.legend_bbox;
     document.getElementById('legendBboxX').value = bbox ? bbox[0] : '';
     document.getElementById('legendBboxY').value = bbox ? bbox[1] : '';
+
+    // 同步隐藏图例复选框
+    const hideLegendEl = document.getElementById('hideLegend');
+    if (hideLegendEl) hideLegendEl.checked = payload.hide_legend || false;
 }
 
 function initChartEditPanel() {
@@ -1638,6 +1642,9 @@ function initChartEditPanel() {
                 const activeBtn = document.querySelector('.legend-pos-btn.active');
                 payload.legend_loc = activeBtn ? activeBtn.dataset.loc : 'upper right';
             }
+
+            // 隐藏图例
+            payload.hide_legend = document.getElementById('hideLegend')?.checked || false;
 
             // 同步回主界面字号控件（保持一致）
             const setMain = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };

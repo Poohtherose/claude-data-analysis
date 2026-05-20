@@ -1241,17 +1241,23 @@ def make_bar_chart(config):
         ax.set_title(title, **kw)
 
     # 图例（单系列也显示，方便识别）
-    legend_loc = config.get('legend_loc', 'best')
-    legend_bbox = config.get('legend_bbox', None)  # [x, y] in axes fraction
-    legend_kw = {'fontsize': fs_legend, 'frameon': True, 'edgecolor': '#cccccc'}
-    if chinese_font:
-        legend_kw['prop'] = fm.FontProperties(family=chinese_font, size=fs_legend, weight=fw_legend)
-    if legend_bbox:
-        legend_kw['loc'] = 'upper left'
-        legend_kw['bbox_to_anchor'] = tuple(legend_bbox)
+    hide_legend = config.get('hide_legend', False)
+    if not hide_legend:
+        legend_loc = config.get('legend_loc', 'best')
+        legend_bbox = config.get('legend_bbox', None)  # [x, y] in axes fraction
+        legend_kw = {'fontsize': fs_legend, 'frameon': True, 'edgecolor': '#cccccc'}
+        if chinese_font:
+            legend_kw['prop'] = fm.FontProperties(family=chinese_font, size=fs_legend, weight=fw_legend)
+        if legend_bbox:
+            legend_kw['loc'] = 'upper left'
+            legend_kw['bbox_to_anchor'] = tuple(legend_bbox)
+        else:
+            legend_kw['loc'] = legend_loc
+        ax.legend(**legend_kw)
     else:
-        legend_kw['loc'] = legend_loc
-    ax.legend(**legend_kw)
+        leg = ax.get_legend()
+        if leg:
+            leg.remove()
 
     # 去掉上/右边框（OriginPro风格）
     ax.spines['top'].set_visible(False)
@@ -1472,17 +1478,23 @@ def make_line_chart(config):
         ax.set_title(title, **kw)
 
     # 图例
-    legend_loc = config.get('legend_loc', 'best')
-    legend_bbox = config.get('legend_bbox', None)
-    legend_kw = {'fontsize': fs_legend, 'frameon': True, 'edgecolor': '#cccccc'}
-    if chinese_font:
-        legend_kw['prop'] = fm.FontProperties(family=chinese_font, size=fs_legend, weight=fw_legend)
-    if legend_bbox:
-        legend_kw['loc'] = 'upper left'
-        legend_kw['bbox_to_anchor'] = tuple(legend_bbox)
+    hide_legend = config.get('hide_legend', False)
+    if not hide_legend:
+        legend_loc = config.get('legend_loc', 'best')
+        legend_bbox = config.get('legend_bbox', None)
+        legend_kw = {'fontsize': fs_legend, 'frameon': True, 'edgecolor': '#cccccc'}
+        if chinese_font:
+            legend_kw['prop'] = fm.FontProperties(family=chinese_font, size=fs_legend, weight=fw_legend)
+        if legend_bbox:
+            legend_kw['loc'] = 'upper left'
+            legend_kw['bbox_to_anchor'] = tuple(legend_bbox)
+        else:
+            legend_kw['loc'] = legend_loc
+        ax.legend(**legend_kw)
     else:
-        legend_kw['loc'] = legend_loc
-    ax.legend(**legend_kw)
+        leg = ax.get_legend()
+        if leg:
+            leg.remove()
 
     # 去掉上/右边框
     ax.spines['top'].set_visible(False)

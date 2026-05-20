@@ -1578,6 +1578,12 @@
                                         <input type="number" id="legendBboxY" min="-0.5" max="1.5" step="0.05" value="" placeholder="自动" style="width:64px;padding:3px 5px;border:1px solid #bae6fd;border-radius:5px;font-size:0.82rem;">
                                     </div>
                                 </div>
+                                <div style="margin-top:0.6rem;">
+                                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                                        <input type="checkbox" id="hideLegend" style="width:16px;height:16px;cursor:pointer;accent-color:#e53935;">
+                                        <span style="font-size:0.85rem;font-weight:600;color:#e53935;">隐藏图例</span>
+                                    </label>
+                                </div>
                             </div>
 
                             <!-- 字号 & 轴标签 -->
@@ -1622,6 +1628,6 @@
         <div class="loading-subtext">执行ANOVA检验、LSD检验、Duncan检验和方差齐性检验</div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=17"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=18"></script>
 </body>
 </html>
