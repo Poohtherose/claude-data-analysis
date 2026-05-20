@@ -24,6 +24,25 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
+import json as _json
+
+class _NaNSafeEncoder(_json.JSONEncoder):
+    def iterencode(self, o, _one_shot=False):
+        return super().iterencode(self._sanitize(o), _one_shot)
+
+    def _sanitize(self, obj):
+        if isinstance(obj, float):
+            if np.isnan(obj) or np.isinf(obj):
+                return None
+            return obj
+        if isinstance(obj, dict):
+            return {k: self._sanitize(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [self._sanitize(v) for v in obj]
+        return obj
+
+app.json_encoder = _NaNSafeEncoder
+
 ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
 
 
@@ -806,14 +825,21 @@ def upload_file():
                 row[ind_key + '_duncan'] = duncan_match['subset'] if duncan_match else ''
             summary_table.append(row)
 
+        def safe_float(val):
+            """Convert to float, replacing NaN/Inf with None for JSON safety."""
+            f = float(val)
+            if np.isnan(f) or np.isinf(f):
+                return None
+            return f
+
         return jsonify({
             'success': True,
             'indicators': list(all_results.keys()),
             'summary_table': summary_table,
             'preview': {k: {
                 'anova_significant': bool(v['anova']['significant']),
-                'f_statistic': float(v['anova']['f_statistic']),
-                'p_value': float(v['anova']['p_value']),
+                'f_statistic': safe_float(v['anova']['f_statistic']),
+                'p_value': safe_float(v['anova']['p_value']),
                 'levene_significant': bool(v['levene']['significant']) if v['levene'] else None
             } for k, v in all_results.items()}
         })
@@ -918,10 +944,13 @@ def get_columns():
                 'is_sample_candidate': columns_str[i] == detected_sample_str
             })
 
+        def df_to_json_safe(frame):
+            return frame.where(frame.notna(), other=None).to_dict(orient='records')
+
         return jsonify({
             'columns': columns_str,
-            'preview': df.head(10).to_dict(orient='records'),
-            'all_data': df.to_dict(orient='records'),
+            'preview': df_to_json_safe(df.head(10)),
+            'all_data': df_to_json_safe(df),
             'shape': df.shape,
             'detected': {
                 'sample_column': detected_sample_str,
