@@ -876,6 +876,76 @@
             margin-top: 1rem;
         }
         .plot-small-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+
+        /* 图表交互编辑面板 */
+        .chart-edit-panel {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #0ea5e9;
+            border-radius: 14px;
+        }
+        .chart-edit-panel.show { display: block; }
+        .chart-edit-panel h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0369a1;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .legend-pos-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 40px);
+            grid-template-rows: repeat(3, 40px);
+            gap: 4px;
+            margin: 0.5rem 0;
+        }
+        .legend-pos-btn {
+            width: 40px; height: 40px;
+            border: 2px solid #bae6fd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.65rem;
+            color: #0369a1;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+            padding: 2px;
+            text-align: center;
+            line-height: 1.1;
+        }
+        .legend-pos-btn:hover { background: #bae6fd; border-color: #0ea5e9; }
+        .legend-pos-btn.active { background: #0ea5e9; color: white; border-color: #0369a1; }
+        .edit-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .edit-row label { font-size: 0.82rem; color: #0369a1; font-weight: 600; min-width: 80px; }
+        .edit-row input[type=number] {
+            width: 64px; padding: 4px 6px;
+            border: 1px solid #bae6fd; border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        .edit-row input[type=text] {
+            flex: 1; min-width: 120px; padding: 4px 8px;
+            border: 1px solid #bae6fd; border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        .chart-regen-btn {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.45rem 1rem;
+            background: linear-gradient(135deg, #0ea5e9, #0369a1);
+            color: white; border: none; border-radius: 8px;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .chart-regen-btn:hover { opacity: 0.88; transform: translateY(-1px); }
     </style>
 </head>
 <body>
@@ -1479,6 +1549,67 @@
                     </div>
 
                     <div id="plotResult" style="margin-top:1.5rem;"></div>
+
+                    <!-- 图表交互编辑面板 -->
+                    <div class="chart-edit-panel" id="chartEditPanel">
+                        <h4><i class="fas fa-sliders-h"></i> 图表元素编辑（类 OriginPro）</h4>
+
+                        <div style="display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:start;">
+                            <!-- 图例位置 -->
+                            <div>
+                                <div class="plot-small-label" style="font-weight:700;color:#0369a1;margin-bottom:0.4rem;">图例位置</div>
+                                <div class="legend-pos-grid" id="legendPosGrid">
+                                    <button class="legend-pos-btn" data-loc="upper left" title="左上">左上</button>
+                                    <button class="legend-pos-btn" data-loc="upper center" title="上中">上中</button>
+                                    <button class="legend-pos-btn active" data-loc="upper right" title="右上">右上</button>
+                                    <button class="legend-pos-btn" data-loc="center left" title="左中">左中</button>
+                                    <button class="legend-pos-btn" data-loc="center" title="中">中</button>
+                                    <button class="legend-pos-btn" data-loc="center right" title="右中">右中</button>
+                                    <button class="legend-pos-btn" data-loc="lower left" title="左下">左下</button>
+                                    <button class="legend-pos-btn" data-loc="lower center" title="下中">下中</button>
+                                    <button class="legend-pos-btn" data-loc="lower right" title="右下">右下</button>
+                                </div>
+                                <div style="margin-top:0.5rem;">
+                                    <div class="plot-small-label" style="color:#0369a1;font-weight:600;">精确位置（X, Y 轴比例 0~1.5）</div>
+                                    <div style="display:flex;gap:0.4rem;align-items:center;margin-top:0.25rem;">
+                                        <span style="font-size:0.8rem;color:#555;">X:</span>
+                                        <input type="number" id="legendBboxX" min="-0.5" max="1.5" step="0.05" value="" placeholder="自动" style="width:64px;padding:3px 5px;border:1px solid #bae6fd;border-radius:5px;font-size:0.82rem;">
+                                        <span style="font-size:0.8rem;color:#555;">Y:</span>
+                                        <input type="number" id="legendBboxY" min="-0.5" max="1.5" step="0.05" value="" placeholder="自动" style="width:64px;padding:3px 5px;border:1px solid #bae6fd;border-radius:5px;font-size:0.82rem;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 字号 & 轴标签 -->
+                            <div>
+                                <div class="plot-small-label" style="font-weight:700;color:#0369a1;margin-bottom:0.4rem;">字号（pt）</div>
+                                <div class="edit-row">
+                                    <label>轴标签</label>
+                                    <input type="number" id="editFsAxisLabel" min="6" max="36" value="13">
+                                    <label>刻度</label>
+                                    <input type="number" id="editFsTick" min="6" max="36" value="11">
+                                    <label>图例</label>
+                                    <input type="number" id="editFsLegend" min="6" max="36" value="10">
+                                    <label>数据标签</label>
+                                    <input type="number" id="editFsDataLabel" min="6" max="36" value="9">
+                                </div>
+                                <div class="plot-small-label" style="font-weight:700;color:#0369a1;margin-bottom:0.4rem;margin-top:0.5rem;">轴标签文字</div>
+                                <div class="edit-row">
+                                    <label>X 轴</label>
+                                    <input type="text" id="editXLabel" placeholder="X轴标签">
+                                    <label>Y 轴</label>
+                                    <input type="text" id="editYLabel" placeholder="Y轴标签">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:0.75rem;">
+                            <button class="chart-regen-btn" id="regenChartBtn">
+                                <i class="fas fa-sync-alt"></i> 应用更改并重新生成
+                            </button>
+                            <span style="font-size:0.78rem;color:#0369a1;margin-left:0.75rem;">修改后点击按钮重新生成图表</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1491,6 +1622,6 @@
         <div class="loading-subtext">执行ANOVA检验、LSD检验、Duncan检验和方差齐性检验</div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=16"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=17"></script>
 </body>
 </html>

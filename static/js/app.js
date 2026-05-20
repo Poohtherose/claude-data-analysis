@@ -967,6 +967,10 @@ function initPlotModule() {
             const fsDataLabelGroup = document.getElementById('fsDataLabelGroup');
             if (fsLegendGroup) fsLegendGroup.style.display = isHeatmap ? 'none' : '';
             if (fsDataLabelGroup) fsDataLabelGroup.style.display = isHeatmap ? 'none' : '';
+
+            // 切换图表类型时隐藏编辑面板
+            const editPanel = document.getElementById('chartEditPanel');
+            if (editPanel) editPanel.classList.remove('show');
         });
     });
 
@@ -1541,6 +1545,9 @@ async function generatePlot() {
             opjuBtn.style.display = result.opju ? 'inline-flex' : 'none';
         }
 
+        // 显示交互编辑面板并同步当前值
+        showChartEditPanel(payload);
+
         showAlert('图表生成成功！', 'success');
     } catch (e) {
         showAlert('生成图表失败: ' + e.message, 'error');
@@ -1549,6 +1556,127 @@ async function generatePlot() {
     }
 }
 
+// ─── 图表交互编辑面板 ───────────────────────────────────────────────────────────
+
+// 保存最后一次生成图表的 payload，供重新生成使用
+let lastPlotPayload = null;
+
+function showChartEditPanel(payload) {
+    lastPlotPayload = JSON.parse(JSON.stringify(payload));  // deep copy
+
+    const panel = document.getElementById('chartEditPanel');
+    if (!panel) return;
+    panel.classList.add('show');
+
+    // 同步字号输入框
+    const fs = payload.font_sizes || {};
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+    setVal('editFsAxisLabel', fs.axis_label || 13);
+    setVal('editFsTick', fs.tick || 11);
+    setVal('editFsLegend', fs.legend || 10);
+    setVal('editFsDataLabel', fs.data_label || 9);
+
+    // 同步轴标签
+    setVal('editXLabel', payload.x_label || '');
+    setVal('editYLabel', payload.y_label || '');
+
+    // 同步图例位置按钮
+    const currentLoc = payload.legend_loc || 'upper right';
+    document.querySelectorAll('.legend-pos-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.loc === currentLoc);
+    });
+
+    // 清空精确位置输入
+    const bbox = payload.legend_bbox;
+    document.getElementById('legendBboxX').value = bbox ? bbox[0] : '';
+    document.getElementById('legendBboxY').value = bbox ? bbox[1] : '';
+}
+
+function initChartEditPanel() {
+    // 图例位置按钮点击
+    document.querySelectorAll('.legend-pos-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.legend-pos-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // 选了预设位置就清空精确坐标
+            document.getElementById('legendBboxX').value = '';
+            document.getElementById('legendBboxY').value = '';
+        });
+    });
+
+    // 重新生成按钮
+    const regenBtn = document.getElementById('regenChartBtn');
+    if (regenBtn) {
+        regenBtn.addEventListener('click', async () => {
+            if (!lastPlotPayload) return;
+
+            // 读取编辑面板的值并覆盖 payload
+            const payload = JSON.parse(JSON.stringify(lastPlotPayload));
+
+            // 字号
+            payload.font_sizes = payload.font_sizes || {};
+            const getNum = (id, def) => { const v = parseInt(document.getElementById(id)?.value); return isNaN(v) ? def : v; };
+            payload.font_sizes.axis_label = getNum('editFsAxisLabel', 13);
+            payload.font_sizes.tick       = getNum('editFsTick', 11);
+            payload.font_sizes.legend     = getNum('editFsLegend', 10);
+            payload.font_sizes.data_label = getNum('editFsDataLabel', 9);
+
+            // 轴标签
+            const xLbl = document.getElementById('editXLabel')?.value;
+            const yLbl = document.getElementById('editYLabel')?.value;
+            if (xLbl !== undefined) payload.x_label = xLbl;
+            if (yLbl !== undefined) payload.y_label = yLbl;
+
+            // 图例位置
+            const bboxX = document.getElementById('legendBboxX')?.value;
+            const bboxY = document.getElementById('legendBboxY')?.value;
+            if (bboxX !== '' && bboxY !== '' && bboxX != null && bboxY != null) {
+                payload.legend_bbox = [parseFloat(bboxX), parseFloat(bboxY)];
+                payload.legend_loc = 'upper left';
+            } else {
+                payload.legend_bbox = null;
+                const activeBtn = document.querySelector('.legend-pos-btn.active');
+                payload.legend_loc = activeBtn ? activeBtn.dataset.loc : 'upper right';
+            }
+
+            // 同步回主界面字号控件（保持一致）
+            const setMain = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+            setMain('fsAxisLabel', payload.font_sizes.axis_label);
+            setMain('fsTick', payload.font_sizes.tick);
+            setMain('fsLegend', payload.font_sizes.legend);
+            setMain('fsDataLabel', payload.font_sizes.data_label);
+            setMain('plotXLabel', payload.x_label);
+            setMain('plotYLabel', payload.y_label);
+
+            showLoading(true);
+            try {
+                const resp = await fetch('/api/plot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await resp.json();
+                if (result.error) throw new Error(result.error);
+
+                plotState.lastImageB64 = result.image;
+                plotState.lastExcelB64 = result.excel;
+                plotState.lastOpjuB64 = result.opju || null;
+
+                document.getElementById('plotResult').innerHTML =
+                    `<img class="plot-result-img" src="data:image/png;base64,${result.image}" alt="图表">`;
+
+                lastPlotPayload = payload;
+                showAlert('图表已更新！', 'success');
+            } catch (e) {
+                showAlert('重新生成失败: ' + e.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initPlotModule();
+    initChartEditPanel();
 });
