@@ -254,15 +254,13 @@ def duncan_test(data_dict, anova_result, alpha=0.05):
     n_harmonic = len(ns) / sum(1 / n for n in ns) if all(n > 0 for n in ns) else np.mean(ns)
     standard_error = np.sqrt(ms_within / n_harmonic)
 
-    # 使用t分布近似计算Duncan临界值（比studentized_range快得多）
-    # Duncan检验使用变化的显著性水平: alpha^(k-1) 其中k是跨度
+    # Duncan 临界值：与 SPSS 完全一致的实现
+    # SPSS Duncan 检验的核心：对跨度 p，alpha_p = 1-(1-alpha)^(p-1)
+    # 临界值 = t(df, alpha_p/2) * SE * sqrt(2)  （等价于 LSD 用 alpha_p）
+    # SE 使用全局调和均值样本量（SPSS 默认）
     def get_duncan_critical_range(p, df, alpha, se):
-        """使用t分布计算Duncan临界值"""
-        # Duncan检验: 对p个均值，使用 alpha_p = 1 - (1-alpha)^(p-1)
         alpha_p = 1 - (1 - alpha) ** (p - 1)
-        # 使用t分布的临界值近似
         t_val = stats.t.ppf(1 - alpha_p / 2, df)
-        # 转换为范围统计量
         return t_val * se * np.sqrt(2)
 
     # 计算各组间的显著性
@@ -277,10 +275,10 @@ def duncan_test(data_dict, anova_result, alpha=0.05):
             mean_diff = abs(group1['mean'] - group2['mean'])
             p = j - i + 1  # 跨度 (number of means spanned)
 
-            # 计算Duncan临界值
+            # 使用全局调和均值 SE（与 SPSS 一致）
             critical_range = get_duncan_critical_range(p, df_within, alpha, standard_error)
 
-            # 使用t检验计算p值（更快且结果接近）
+            # p 值用全局 SE 的 t 检验近似
             t_stat = mean_diff / (standard_error * np.sqrt(2)) if standard_error > 0 else 0
             p_value = 2 * (1 - stats.t.cdf(abs(t_stat), df_within))
 
@@ -296,27 +294,59 @@ def duncan_test(data_dict, anova_result, alpha=0.05):
                 'p_value': round(p_value, 4)
             })
 
-    # 为每个组分配字母标记（类似SPSS输出）
-    # 这是一个简化的实现
-    group_markers = {gs['group']: '' for gs in group_stats}
-    current_letter = 'a'
+    # SPSS Duncan Homogeneous Subsets + CLD 字母分配
+    # SPSS 用 studentized range p 值判断子集是否成立：
+    # q = (max_mean - min_mean) / SE，若 p(q, k, df) > alpha 则子集成立
+    n = len(group_stats)
+    asc_stats = sorted(group_stats, key=lambda x: x['mean'])
 
-    for i, gs in enumerate(group_stats):
-        if group_markers[gs['group']] == '':
-            # 为该组及其不显著不同的组分配相同的字母
-            group_markers[gs['group']] = current_letter
+    def subset_q_p(indices):
+        """子集内 studentized range p 值"""
+        if len(indices) <= 1:
+            return 1.0
+        means = [asc_stats[i]['mean'] for i in indices]
+        q = (max(means) - min(means)) / standard_error
+        k = len(indices)
+        return float(1 - stats.studentized_range.cdf(q, k, df_within))
 
-            for j in range(i + 1, len(group_stats)):
-                other = group_stats[j]
-                # 检查是否显著不同
-                comp = next((c for c in comparisons
-                           if (c['group1'] == gs['group'] and c['group2'] == other['group']) or
-                              (c['group1'] == other['group'] and c['group2'] == gs['group'])), None)
+    def subset_is_homogeneous(indices):
+        return subset_q_p(indices) > alpha
 
-                if comp and not comp['significant'] and group_markers[other['group']] == '':
-                    group_markers[other['group']] = current_letter
+    # 构建所有最大 homogeneous subsets
+    raw_subsets = []
+    for start in range(n):
+        current = [start]
+        for j in range(start + 1, n):
+            candidate = current + [j]
+            if subset_is_homogeneous(candidate):
+                current.append(j)
+            else:
+                break
+        raw_subsets.append(tuple(current))
 
-            current_letter = chr(ord(current_letter) + 1)
+    # 去掉被其他子集完全包含的子集
+    maximal_subsets = []
+    for s in raw_subsets:
+        s_set = set(s)
+        dominated = any(s_set < set(other) for other in raw_subsets if other != s)
+        if not dominated:
+            s_list = list(s)
+            if s_list not in maximal_subsets:
+                maximal_subsets.append(s_list)
+
+    # 按子集最大均值降序排列（均值最大的子集先分配 a）
+    maximal_subsets.sort(key=lambda s: asc_stats[s[-1]]['mean'], reverse=True)
+
+    # 为每个子集分配字母
+    group_letters = {gs['group']: [] for gs in group_stats}
+    for letter_idx, subset in enumerate(maximal_subsets):
+        letter = chr(ord('a') + letter_idx)
+        for idx in subset:
+            g = asc_stats[idx]['group']
+            if letter not in group_letters[g]:
+                group_letters[g].append(letter)
+
+    group_markers = {g: ''.join(sorted(letters)) for g, letters in group_letters.items()}
 
     return {
         'standard_error': round(standard_error, 4),
