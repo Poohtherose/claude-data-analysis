@@ -1271,17 +1271,17 @@ def make_bar_chart(config):
         ax.yaxis.grid(True, linestyle='--', alpha=0.4, zorder=0)
         ax.set_axisbelow(True)
 
-    plt.tight_layout()
+    plt.tight_layout(pad=2.5)
 
     # 输出 PNG (base64)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0.3)
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
 
     # 输出 SVG (base64) 用于前端交互编辑
     svg_buf = io.BytesIO()
-    fig.savefig(svg_buf, format='svg', bbox_inches='tight')
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=0.3)
     svg_buf.seek(0)
     svg_b64 = base64.b64encode(svg_buf.read()).decode('utf-8')
 
@@ -1515,17 +1515,17 @@ def make_line_chart(config):
         ax.yaxis.grid(True, linestyle='--', alpha=0.4, zorder=0)
         ax.set_axisbelow(True)
 
-    plt.tight_layout()
+    plt.tight_layout(pad=2.5)
 
     # 输出 PNG (base64)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0.3)
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
 
     # 输出 SVG (base64) 用于前端交互编辑
     svg_buf = io.BytesIO()
-    fig.savefig(svg_buf, format='svg', bbox_inches='tight')
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=0.3)
     svg_buf.seek(0)
     svg_b64 = base64.b64encode(svg_buf.read()).decode('utf-8')
 
