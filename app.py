@@ -1275,13 +1275,13 @@ def make_bar_chart(config):
 
     # 输出 PNG (base64)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0.3)
+    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0.5)
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
 
     # 输出 SVG (base64) 用于前端交互编辑
     svg_buf = io.BytesIO()
-    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=0.3)
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=0.5)
     svg_buf.seek(0)
     svg_b64 = base64.b64encode(svg_buf.read()).decode('utf-8')
 
@@ -1519,13 +1519,13 @@ def make_line_chart(config):
 
     # 输出 PNG (base64)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0.3)
+    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0.5)
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
 
     # 输出 SVG (base64) 用于前端交互编辑
     svg_buf = io.BytesIO()
-    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=0.3)
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=0.5)
     svg_buf.seek(0)
     svg_b64 = base64.b64encode(svg_buf.read()).decode('utf-8')
 

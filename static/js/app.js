@@ -1568,102 +1568,24 @@ async function generatePlot() {
 
 // ─── 图表交互编辑面板 ───────────────────────────────────────────────────────────
 
-// 保存最后一次生成图表的 payload，供重新生成使用
 let lastPlotPayload = null;
 
 function showChartEditPanel(payload) {
-    lastPlotPayload = JSON.parse(JSON.stringify(payload));  // deep copy
-
-    const panel = document.getElementById('chartEditPanel');
-    if (!panel) return;
-    panel.classList.add('show');
-
-    // 同步字号输入框
-    const fs = payload.font_sizes || {};
-    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
-    setVal('editFsAxisLabel', fs.axis_label || 13);
-    setVal('editFsTick', fs.tick || 11);
-    setVal('editFsLegend', fs.legend || 10);
-    setVal('editFsDataLabel', fs.data_label || 9);
-
-    // 同步轴标签
-    setVal('editXLabel', payload.x_label || '');
-    setVal('editYLabel', payload.y_label || '');
-
-    // 同步图例位置按钮
-    const currentLoc = payload.legend_loc || 'upper right';
-    document.querySelectorAll('.legend-pos-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.loc === currentLoc);
-    });
-
-    // 清空精确位置输入
-    const bbox = payload.legend_bbox;
-    document.getElementById('legendBboxX').value = bbox ? bbox[0] : '';
-    document.getElementById('legendBboxY').value = bbox ? bbox[1] : '';
-
-    // 同步隐藏图例复选框
+    lastPlotPayload = JSON.parse(JSON.stringify(payload));
+    // 显示隐藏图例栏
+    const bar = document.getElementById('hideLegendBar');
+    if (bar) bar.style.display = 'flex';
     const hideLegendEl = document.getElementById('hideLegend');
     if (hideLegendEl) hideLegendEl.checked = payload.hide_legend || false;
 }
 
 function initChartEditPanel() {
-    // 图例位置按钮点击
-    document.querySelectorAll('.legend-pos-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.legend-pos-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            // 选了预设位置就清空精确坐标
-            document.getElementById('legendBboxX').value = '';
-            document.getElementById('legendBboxY').value = '';
-        });
-    });
-
-    // 重新生成按钮
     const regenBtn = document.getElementById('regenChartBtn');
     if (regenBtn) {
         regenBtn.addEventListener('click', async () => {
             if (!lastPlotPayload) return;
-
-            // 读取编辑面板的值并覆盖 payload
             const payload = JSON.parse(JSON.stringify(lastPlotPayload));
-
-            // 字号
-            payload.font_sizes = payload.font_sizes || {};
-            const getNum = (id, def) => { const v = parseInt(document.getElementById(id)?.value); return isNaN(v) ? def : v; };
-            payload.font_sizes.axis_label = getNum('editFsAxisLabel', 13);
-            payload.font_sizes.tick       = getNum('editFsTick', 11);
-            payload.font_sizes.legend     = getNum('editFsLegend', 10);
-            payload.font_sizes.data_label = getNum('editFsDataLabel', 9);
-
-            // 轴标签
-            const xLbl = document.getElementById('editXLabel')?.value;
-            const yLbl = document.getElementById('editYLabel')?.value;
-            if (xLbl !== undefined) payload.x_label = xLbl;
-            if (yLbl !== undefined) payload.y_label = yLbl;
-
-            // 图例位置
-            const bboxX = document.getElementById('legendBboxX')?.value;
-            const bboxY = document.getElementById('legendBboxY')?.value;
-            if (bboxX !== '' && bboxY !== '' && bboxX != null && bboxY != null) {
-                payload.legend_bbox = [parseFloat(bboxX), parseFloat(bboxY)];
-                payload.legend_loc = 'upper left';
-            } else {
-                payload.legend_bbox = null;
-                const activeBtn = document.querySelector('.legend-pos-btn.active');
-                payload.legend_loc = activeBtn ? activeBtn.dataset.loc : 'upper right';
-            }
-
-            // 隐藏图例
             payload.hide_legend = document.getElementById('hideLegend')?.checked || false;
-
-            // 同步回主界面字号控件（保持一致）
-            const setMain = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-            setMain('fsAxisLabel', payload.font_sizes.axis_label);
-            setMain('fsTick', payload.font_sizes.tick);
-            setMain('fsLegend', payload.font_sizes.legend);
-            setMain('fsDataLabel', payload.font_sizes.data_label);
-            setMain('plotXLabel', payload.x_label);
-            setMain('plotYLabel', payload.y_label);
 
             showLoading(true);
             try {
@@ -1685,7 +1607,6 @@ function initChartEditPanel() {
                 } else {
                     pr.innerHTML = `<img class="plot-result-img" src="data:image/png;base64,${result.image}" alt="图表">`;
                 }
-
                 lastPlotPayload = payload;
                 showAlert('图表已更新！', 'success');
             } catch (e) {
@@ -1877,4 +1798,40 @@ function makeSVGDraggable(el, svgEl) {
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
     });
+
+    // 滚轮缩放：调整元素内所有字形的 scale
+    // matplotlib SVG 中文字是 <g transform="translate(x y) scale(0.1 -0.1)"> 结构
+    // 我们通过修改外层 g 的 scale 来缩放整个标签/图例
+    el.addEventListener('wheel', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const delta = e.deltaY < 0 ? 1.08 : 0.93;  // 每格滚动缩放 8%
+
+        // 找内层所有带 scale 的 g 元素，修改其 scale 值
+        const innerGs = el.querySelectorAll('g[transform]');
+        let scaled = false;
+        innerGs.forEach(g => {
+            const t = g.getAttribute('transform') || '';
+            // 匹配 scale(sx sy) 或 scale(s)
+            const sm = t.match(/scale\(\s*([-\d.e]+)\s+([-\d.e]+)\s*\)/);
+            if (sm) {
+                const sx = parseFloat(sm[1]) * delta;
+                const sy = parseFloat(sm[2]) * delta;
+                g.setAttribute('transform', t.replace(/scale\(\s*[-\d.e]+\s+[-\d.e]+\s*\)/, `scale(${sx} ${sy})`));
+                scaled = true;
+            }
+        });
+
+        // 如果没有内层 scale，直接在外层加 scale transform
+        if (!scaled) {
+            const t = el.getAttribute('transform') || '';
+            const sm = t.match(/scale\(\s*([-\d.e]+)\s*\)/);
+            if (sm) {
+                const s = parseFloat(sm[1]) * delta;
+                el.setAttribute('transform', t.replace(/scale\(\s*[-\d.e]+\s*\)/, `scale(${s})`));
+            } else {
+                el.setAttribute('transform', (t + ` scale(${delta})`).trim());
+            }
+        }
+    }, { passive: false });
 }
