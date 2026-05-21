@@ -862,7 +862,8 @@ const plotState = {
     seriesCount: 0,
     lastImageB64: null,
     lastExcelB64: null,
-    lastOpjuB64: null
+    lastOpjuB64: null,
+    lastSvgEl: null
 };
 
 function initPlotModule() {
@@ -985,11 +986,15 @@ function initPlotModule() {
     generatePlotBtn.addEventListener('click', generatePlot);
 
     downloadPlotBtn.addEventListener('click', () => {
-        if (!plotState.lastImageB64) return;
-        const a = document.createElement('a');
-        a.href = 'data:image/png;base64,' + plotState.lastImageB64;
-        a.download = '图表.png';
-        a.click();
+        // 优先导出当前 SVG 状态（含拖动后的位置）
+        if (plotState.lastSvgEl) {
+            exportSVGasPNG(plotState.lastSvgEl, '图表.png');
+        } else if (plotState.lastImageB64) {
+            const a = document.createElement('a');
+            a.href = 'data:image/png;base64,' + plotState.lastImageB64;
+            a.download = '图表.png';
+            a.click();
+        }
     });
 
     downloadPlotExcelBtn.addEventListener('click', () => {
@@ -1536,7 +1541,12 @@ async function generatePlot() {
         plotState.lastOpjuB64 = result.opju || null;
 
         const plotResult = document.getElementById('plotResult');
-        plotResult.innerHTML = `<img class="plot-result-img" src="data:image/png;base64,${result.image}" alt="图表">`;
+        if (result.svg) {
+            // 用 SVG 渲染，支持交互拖动
+            renderInteractiveSVG(plotResult, result.svg, result.image);
+        } else {
+            plotResult.innerHTML = `<img class="plot-result-img" src="data:image/png;base64,${result.image}" alt="图表">`;
+        }
 
         document.getElementById('downloadPlotBtn').style.display = 'inline-flex';
         document.getElementById('downloadPlotExcelBtn').style.display = 'inline-flex';
@@ -1669,8 +1679,12 @@ function initChartEditPanel() {
                 plotState.lastExcelB64 = result.excel;
                 plotState.lastOpjuB64 = result.opju || null;
 
-                document.getElementById('plotResult').innerHTML =
-                    `<img class="plot-result-img" src="data:image/png;base64,${result.image}" alt="图表">`;
+                const pr = document.getElementById('plotResult');
+                if (result.svg) {
+                    renderInteractiveSVG(pr, result.svg, result.image);
+                } else {
+                    pr.innerHTML = `<img class="plot-result-img" src="data:image/png;base64,${result.image}" alt="图表">`;
+                }
 
                 lastPlotPayload = payload;
                 showAlert('图表已更新！', 'success');
@@ -1687,3 +1701,347 @@ document.addEventListener('DOMContentLoaded', () => {
     initPlotModule();
     initChartEditPanel();
 });
+
+// ─── 交互式 SVG 图表渲染 ────────────────────────────────────────────────────────
+
+/**
+ * 将当前 SVG 元素（含拖动后的状态）导出为 PNG 并下载。
+ */
+function exportSVGasPNG(svgEl, filename) {
+    // 序列化当前 SVG DOM（含所有修改）
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(svgEl);
+    const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // 高分辨率导出
+        const scale = 2;
+        canvas.width = img.naturalWidth * scale || svgEl.clientWidth * scale;
+        canvas.height = img.naturalHeight * scale || svgEl.clientHeight * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        canvas.toBlob(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename || '图表.png';
+            a.click();
+        }, 'image/png');
+    };
+    img.onerror = () => {
+        // 降级：直接下载 SVG
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (filename || '图表').replace('.png', '.svg');
+        a.click();
+    };
+    img.src = url;
+}
+/**
+ * 将 matplotlib 输出的 SVG 嵌入页面，并为图例、X轴标签、Y轴标签
+ * 添加鼠标拖动 + 双击编辑文字 + 滚轮缩放字号功能。
+ */
+function renderInteractiveSVG(container, svgB64, pngB64) {
+    // 解码 SVG
+    const svgStr = atob(svgB64);
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgStr, 'image/svg+xml');
+    const svgEl = svgDoc.documentElement;
+
+    // 让 SVG 填满容器宽度
+    svgEl.removeAttribute('width');
+    svgEl.removeAttribute('height');
+    svgEl.setAttribute('width', '100%');
+    svgEl.style.maxWidth = '100%';
+    svgEl.style.borderRadius = '12px';
+    svgEl.style.boxShadow = '0 4px 20px rgba(0,0,0,0.12)';
+    svgEl.style.display = 'block';
+    svgEl.style.background = 'white';
+
+    container.innerHTML = '';
+    container.appendChild(svgEl);
+
+    // 提示条
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:0.78rem;color:#0369a1;margin-top:6px;padding:5px 10px;background:#e0f2fe;border-radius:6px;display:flex;align-items:center;gap:6px;';
+    hint.innerHTML = '<i class="fas fa-hand-pointer"></i> 拖动图例或坐标轴标签移动位置 &nbsp;|&nbsp; <i class="fas fa-mouse"></i> 滚轮调整字号 &nbsp;|&nbsp; <i class="fas fa-i-cursor"></i> 双击编辑文字';
+    container.appendChild(hint);
+
+    // 找出可交互元素
+    identifyAndBindInteractiveElements(svgEl);
+
+    // 下载按钮：导出当前 SVG 状态为 PNG（用原始 PNG 作为备用）
+    plotState.lastSvgEl = svgEl;
+    plotState.lastImageB64 = pngB64;
+}
+
+/**
+ * 识别 SVG 中的图例组、X轴标签、Y轴标签，绑定交互事件。
+ * matplotlib SVG 结构：
+ *   - 图例：<g id="legend_..."> 或含 "legend" 的 id
+ *   - X轴标签：<text> 包含 x_label 文字，通常在 axes 底部
+ *   - Y轴标签：<text> 包含 y_label 文字，通常旋转 -90°
+ */
+function identifyAndBindInteractiveElements(svgEl) {
+    // 1. 图例组 —— matplotlib 给图例 g 元素加 id="legend_..."
+    const legendGroups = Array.from(svgEl.querySelectorAll('g[id*="legend"]'));
+
+    // 2. 轴标签文字 —— 找旋转的文字（Y轴）和底部居中文字（X轴）
+    //    matplotlib 的轴标签是独立的 <text> 元素，带 transform="rotate(-90)"
+    const allTexts = Array.from(svgEl.querySelectorAll('text'));
+
+    const xLabelTexts = [];
+    const yLabelTexts = [];
+
+    allTexts.forEach(t => {
+        const transform = (t.getAttribute('transform') || '') + (t.parentElement?.getAttribute('transform') || '');
+        const isRotated = /rotate\s*\(\s*-?90/.test(transform);
+        const content = t.textContent.trim();
+        if (!content) return;
+
+        // Y轴标签：旋转 -90 度
+        if (isRotated && content.length > 0) {
+            yLabelTexts.push(t);
+        }
+        // X轴标签：不旋转，且不是刻度（刻度通常是数字或短字符串）
+        // 用启发式：文字长度 > 1 且不是纯数字
+        else if (!isRotated && content.length > 1 && !/^\d+(\.\d+)?$/.test(content)) {
+            // 排除标题（通常在顶部）和刻度标签
+            // matplotlib x轴标签的 y 坐标通常比较大（靠近底部）
+            const bbox = t.getBoundingClientRect();
+            xLabelTexts.push(t);
+        }
+    });
+
+    // 绑定图例拖动
+    legendGroups.forEach(g => makeDraggable(g, svgEl, 'legend'));
+
+    // 绑定轴标签拖动 + 编辑（取最后一个，通常是实际标签而非刻度）
+    if (xLabelTexts.length > 0) {
+        // 取 y 坐标最大的（最靠底部）
+        const xLbl = xLabelTexts.reduce((a, b) => {
+            const ay = parseFloat(a.getAttribute('y') || '0');
+            const by = parseFloat(b.getAttribute('y') || '0');
+            return by > ay ? b : a;
+        });
+        makeTextInteractive(xLbl, svgEl, 'x-label');
+    }
+
+    if (yLabelTexts.length > 0) {
+        const yLbl = yLabelTexts[0];
+        makeTextInteractive(yLbl, svgEl, 'y-label');
+    }
+}
+
+/**
+ * 让一个 SVG 元素（通常是 <g>）可拖动。
+ */
+function makeDraggable(el, svgEl, role) {
+    el.style.cursor = 'grab';
+    el.setAttribute('data-role', role);
+
+    // 高亮边框提示可拖动
+    el.addEventListener('mouseenter', () => {
+        el.style.outline = '2px dashed #0ea5e9';
+        el.style.outlineOffset = '3px';
+    });
+    el.addEventListener('mouseleave', () => {
+        if (!el._dragging) {
+            el.style.outline = '';
+        }
+    });
+
+    let startX, startY, origTx, origTy;
+
+    el.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        el._dragging = true;
+        el.style.cursor = 'grabbing';
+
+        // 获取当前 transform translate
+        const t = el.getAttribute('transform') || '';
+        const m = t.match(/translate\s*\(\s*([-\d.]+)[,\s]+([-\d.]+)\s*\)/);
+        origTx = m ? parseFloat(m[1]) : 0;
+        origTy = m ? parseFloat(m[2]) : 0;
+
+        // SVG 坐标系转换
+        const pt = svgEl.createSVGPoint();
+        pt.x = e.clientX; pt.y = e.clientY;
+        const svgP = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+        startX = svgP.x; startY = svgP.y;
+
+        const onMove = ev => {
+            const p = svgEl.createSVGPoint();
+            p.x = ev.clientX; p.y = ev.clientY;
+            const sp = p.matrixTransform(svgEl.getScreenCTM().inverse());
+            const dx = sp.x - startX;
+            const dy = sp.y - startY;
+
+            // 保留原有 transform 中非 translate 的部分
+            const existing = (el.getAttribute('transform') || '').replace(/translate\s*\([^)]*\)/g, '').trim();
+            el.setAttribute('transform', `translate(${origTx + dx},${origTy + dy}) ${existing}`);
+        };
+
+        const onUp = () => {
+            el._dragging = false;
+            el.style.cursor = 'grab';
+            el.style.outline = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+
+    // 双击编辑（图例标题，如果有）
+    el.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        const textEls = el.querySelectorAll('text');
+        if (textEls.length > 0) startInlineEdit(textEls[0], svgEl);
+    });
+}
+
+/**
+ * 让一个 <text> 元素可拖动 + 双击编辑 + 滚轮缩放字号。
+ */
+function makeTextInteractive(el, svgEl, role) {
+    el.style.cursor = 'grab';
+    el.setAttribute('data-role', role);
+
+    el.addEventListener('mouseenter', () => {
+        el.style.fill = el.style.fill || '';
+        el.setAttribute('data-orig-opacity', el.style.opacity || '1');
+        el.style.opacity = '0.75';
+        el.style.outline = '1px dashed #0ea5e9';
+    });
+    el.addEventListener('mouseleave', () => {
+        if (!el._dragging) {
+            el.style.opacity = el.getAttribute('data-orig-opacity') || '1';
+            el.style.outline = '';
+        }
+    });
+
+    // 拖动
+    let startX, startY, origX, origY, origTx, origTy;
+
+    el.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        el._dragging = true;
+        el.style.cursor = 'grabbing';
+
+        // 获取当前位置（x/y 属性 或 transform translate）
+        const t = el.getAttribute('transform') || '';
+        const m = t.match(/translate\s*\(\s*([-\d.]+)[,\s]+([-\d.]+)\s*\)/);
+        origTx = m ? parseFloat(m[1]) : 0;
+        origTy = m ? parseFloat(m[2]) : 0;
+        origX = parseFloat(el.getAttribute('x') || '0');
+        origY = parseFloat(el.getAttribute('y') || '0');
+
+        const pt = svgEl.createSVGPoint();
+        pt.x = e.clientX; pt.y = e.clientY;
+        const svgP = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+        startX = svgP.x; startY = svgP.y;
+
+        const onMove = ev => {
+            const p = svgEl.createSVGPoint();
+            p.x = ev.clientX; p.y = ev.clientY;
+            const sp = p.matrixTransform(svgEl.getScreenCTM().inverse());
+            const dx = sp.x - startX;
+            const dy = sp.y - startY;
+
+            if (m) {
+                // 用 transform translate 移动
+                const existing = (el.getAttribute('transform') || '').replace(/translate\s*\([^)]*\)/g, '').trim();
+                el.setAttribute('transform', `translate(${origTx + dx},${origTy + dy}) ${existing}`);
+            } else {
+                // 直接修改 x/y
+                el.setAttribute('x', origX + dx);
+                el.setAttribute('y', origY + dy);
+            }
+        };
+
+        const onUp = () => {
+            el._dragging = false;
+            el.style.cursor = 'grab';
+            el.style.opacity = el.getAttribute('data-orig-opacity') || '1';
+            el.style.outline = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+
+    // 双击编辑文字
+    el.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        startInlineEdit(el, svgEl);
+    });
+
+    // 滚轮缩放字号
+    el.addEventListener('wheel', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const cur = parseFloat(el.getAttribute('font-size') || window.getComputedStyle(el).fontSize || '12');
+        const delta = e.deltaY < 0 ? 1 : -1;
+        const newSize = Math.max(6, Math.min(48, cur + delta));
+        el.setAttribute('font-size', newSize);
+    }, { passive: false });
+}
+
+/**
+ * 在 SVG 文字元素上启动内联编辑（用 foreignObject 覆盖一个 input）。
+ */
+function startInlineEdit(textEl, svgEl) {
+    const bbox = textEl.getBoundingClientRect();
+    const svgRect = svgEl.getBoundingClientRect();
+
+    // 创建浮动 input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = textEl.textContent.trim();
+    input.style.cssText = `
+        position: fixed;
+        left: ${bbox.left}px;
+        top: ${bbox.top - 4}px;
+        width: ${Math.max(bbox.width + 40, 120)}px;
+        font-size: ${parseFloat(textEl.getAttribute('font-size') || '13') * (svgRect.width / (svgEl.viewBox?.baseVal?.width || svgRect.width))}px;
+        padding: 2px 6px;
+        border: 2px solid #0ea5e9;
+        border-radius: 4px;
+        background: white;
+        color: #1a365d;
+        z-index: 9999;
+        outline: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    `;
+
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+        const newText = input.value.trim();
+        if (newText) textEl.textContent = newText;
+        input.remove();
+    };
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') input.remove();
+    });
+}

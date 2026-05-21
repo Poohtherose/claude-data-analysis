@@ -1278,6 +1278,13 @@ def make_bar_chart(config):
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
+
+    # 输出 SVG (base64) 用于前端交互编辑
+    svg_buf = io.BytesIO()
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight')
+    svg_buf.seek(0)
+    svg_b64 = base64.b64encode(svg_buf.read()).decode('utf-8')
+
     plt.close(fig)
 
     # 同时生成可编辑的 Excel（数据表）
@@ -1289,7 +1296,7 @@ def make_bar_chart(config):
     excel_buf.seek(0)
     excel_b64 = base64.b64encode(excel_buf.read()).decode('utf-8')
 
-    return img_b64, excel_b64
+    return img_b64, excel_b64, svg_b64
 
 
 def make_line_chart(config):
@@ -1515,6 +1522,13 @@ def make_line_chart(config):
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
+
+    # 输出 SVG (base64) 用于前端交互编辑
+    svg_buf = io.BytesIO()
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight')
+    svg_buf.seek(0)
+    svg_b64 = base64.b64encode(svg_buf.read()).decode('utf-8')
+
     plt.close(fig)
 
     # 同时生成可编辑的 Excel（数据表）
@@ -1526,7 +1540,7 @@ def make_line_chart(config):
     excel_buf.seek(0)
     excel_b64 = base64.b64encode(excel_buf.read()).decode('utf-8')
 
-    return img_b64, excel_b64
+    return img_b64, excel_b64, svg_b64
 
 
 
@@ -2082,8 +2096,9 @@ def api_plot():
             return jsonify({'error': '无效请求'}), 400
 
         chart_type = payload.get('chart_type', 'bar')
+        svg_b64 = None
         if chart_type == 'bar':
-            img_b64, excel_b64 = make_bar_chart(payload)
+            img_b64, excel_b64, svg_b64 = make_bar_chart(payload)
             # 生成含图表的 Excel（Origin 可直接打开编辑）
             df_plot = pd.DataFrame(payload['data'])
             opju_b64 = make_excel_with_chart(
@@ -2095,7 +2110,7 @@ def api_plot():
                 payload.get('colors', [])
             )
         elif chart_type == 'line':
-            img_b64, excel_b64 = make_line_chart(payload)
+            img_b64, excel_b64, svg_b64 = make_line_chart(payload)
             # 折线图也生成 Excel 数据文件
             df_plot = pd.DataFrame(payload['data'])
             opju_b64 = make_excel_with_chart(
@@ -2119,7 +2134,7 @@ def api_plot():
         else:
             return jsonify({'error': f'暂不支持图表类型: {chart_type}'}), 400
 
-        return jsonify({'image': img_b64, 'excel': excel_b64, 'opju': opju_b64})
+        return jsonify({'image': img_b64, 'excel': excel_b64, 'opju': opju_b64, 'svg': svg_b64})
 
     except Exception as e:
         import traceback
