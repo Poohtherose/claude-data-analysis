@@ -645,6 +645,7 @@ def create_excel_report(all_results, original_df):
             duncan_match = next((gm for gm in results['duncan']['group_means'] if gm['group'] == sample), None)
             row[f'{ind_key}_平均值'] = round(gs_match['mean'], 4) if gs_match else None
             row[f'{ind_key}_标准差'] = round(gs_match['std'], 4) if gs_match else None
+            row[f'{ind_key}_标准误'] = round(gs_match['se'], 4) if gs_match else None
             row[f'{ind_key}_Duncan'] = duncan_match['subset'] if duncan_match else ''
         summary_rows.append(row)
 
@@ -849,9 +850,11 @@ def upload_file():
                 if gs_match:
                     row[ind_key + '_mean'] = round(gs_match['mean'], 4)
                     row[ind_key + '_std'] = round(gs_match['std'], 4)
+                    row[ind_key + '_sem'] = round(gs_match['se'], 4)
                 else:
                     row[ind_key + '_mean'] = None
                     row[ind_key + '_std'] = None
+                    row[ind_key + '_sem'] = None
                 # Duncan字母
                 duncan_match = next((gm for gm in res['duncan']['group_means'] if gm['group'] == sample), None)
                 row[ind_key + '_duncan'] = duncan_match['subset'] if duncan_match else ''

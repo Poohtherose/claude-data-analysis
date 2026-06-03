@@ -582,11 +582,11 @@ function displayResults(result) {
                 <table class="preview-table">
                     <thead><tr>
                         <th>样品名称</th>
-                        ${indicators.map(ind => `<th colspan="3" style="text-align:center">${escapeHtml(String(ind))}</th>`).join('')}
+                        ${indicators.map(ind => `<th colspan="4" style="text-align:center">${escapeHtml(String(ind))}</th>`).join('')}
                     </tr>
                     <tr>
                         <th></th>
-                        ${indicators.map(() => `<th>均值</th><th>标准差</th><th>Duncan</th>`).join('')}
+                        ${indicators.map(() => `<th>均值</th><th>标准差</th><th>标准误</th><th>Duncan</th>`).join('')}
                     </tr></thead>
                     <tbody>
                         ${summaryTable.map(row => `
@@ -596,8 +596,9 @@ function displayResults(result) {
                                 const k = String(ind);
                                 const mean = row[k+'_mean'] !== null ? row[k+'_mean'] : '-';
                                 const std  = row[k+'_std']  !== null ? row[k+'_std']  : '-';
+                                const sem  = row[k+'_sem']  !== null ? row[k+'_sem']  : '-';
                                 const dun  = row[k+'_duncan'] || '-';
-                                return `<td>${mean}</td><td>${std}</td><td style="font-weight:bold;color:var(--primary-color)">${dun}</td>`;
+                                return `<td>${mean}</td><td>${std}</td><td>${sem}</td><td style="font-weight:bold;color:var(--primary-color)">${dun}</td>`;
                             }).join('')}
                         </tr>`).join('')}
                     </tbody>
@@ -626,13 +627,14 @@ function displayResults(result) {
                 </div>
                 <div class="collapse-content"><div class="collapse-body">
                     <table class="preview-table">
-                        <thead><tr><th>样品名称</th><th>均值</th><th>标准差</th><th>Duncan</th></tr></thead>
+                        <thead><tr><th>样品名称</th><th>均值</th><th>标准差</th><th>标准误</th><th>Duncan</th></tr></thead>
                         <tbody>
                             ${summaryTable.map(row => `
                             <tr>
                                 <td><strong>${escapeHtml(row.sample)}</strong></td>
                                 <td>${row[k+'_mean'] !== null ? row[k+'_mean'] : '-'}</td>
                                 <td>${row[k+'_std']  !== null ? row[k+'_std']  : '-'}</td>
+                                <td>${row[k+'_sem']  !== null ? row[k+'_sem']  : '-'}</td>
                                 <td style="font-weight:bold;color:var(--primary-color)">${row[k+'_duncan'] || '-'}</td>
                             </tr>`).join('')}
                         </tbody>
@@ -887,6 +889,12 @@ function initPlotModule() {
 
     addSeriesBtn.addEventListener('click', addSeries);
 
+    // X 轴列变化时刷新 Y 轴系列的可选列（排除 X 轴列）
+    const plotXColSel = document.getElementById('plotXCol');
+    if (plotXColSel) {
+        plotXColSel.addEventListener('change', refreshPlotColumnSelectors);
+    }
+
     // 取色器与文本框双向同步
     ['Min', 'Mid', 'Max'].forEach(k => {
         const picker = document.getElementById(`heatmapColor${k}`);
@@ -975,12 +983,15 @@ function initPlotModule() {
         });
     });
 
-    // 柱状图组间距滑块同步
-    const barSpacingSlider = document.getElementById('barGroupSpacing');
-    const barSpacingInput = document.getElementById('barGroupSpacingVal');
-    if (barSpacingSlider && barSpacingInput) {
-        barSpacingSlider.addEventListener('input', () => { barSpacingInput.value = barSpacingSlider.value; });
-        barSpacingInput.addEventListener('input', () => { barSpacingSlider.value = barSpacingInput.value; });
+    // 柱子间距滑块同步
+    const barGapSlider = document.getElementById('barGapSlider');
+    const barGapInput = document.getElementById('barGapVal');
+    if (barGapSlider && barGapInput) {
+        barGapSlider.addEventListener('input', () => { barGapInput.value = barGapSlider.value; });
+        barGapInput.addEventListener('input', () => {
+            const v = parseFloat(barGapInput.value);
+            if (!isNaN(v)) barGapSlider.value = Math.min(1, Math.max(0, v));
+        });
     }
 
     generatePlotBtn.addEventListener('click', generatePlot);
@@ -1019,11 +1030,13 @@ function initPlotModule() {
     }
 }
 
-function getColumnOptions(selectedVal) {
+function getColumnOptions(selectedVal, excludeCols = []) {
     const cols = state.columns || [];
-    return cols.map(c =>
-        `<option value="${escapeHtml(c)}" ${c === selectedVal ? 'selected' : ''}>${escapeHtml(c)}</option>`
-    ).join('');
+    const excludeSet = new Set(excludeCols);
+    return cols
+        .filter(c => !excludeSet.has(c))
+        .map(c => `<option value="${escapeHtml(c)}" ${c === selectedVal ? 'selected' : ''}>${escapeHtml(c)}</option>`)
+        .join('');
 }
 
 function updateSeriesHeaderForChartType(chartType) {
@@ -1064,16 +1077,41 @@ function updateSeriesHeaderForChartType(chartType) {
 }
 
 function refreshPlotColumnSelectors() {
-    // 更新 X 轴列选择器
     const xSel = document.getElementById('plotXCol');
+    const xColVal = xSel ? xSel.value : '';
+
+    // 更新 X 轴列选择器（不排除任何列）
     if (xSel) {
         const cur = xSel.value;
         xSel.innerHTML = '<option value="">-- 选择列 --</option>' + getColumnOptions(cur);
     }
-    // 更新所有系列的列选择器
-    document.querySelectorAll('.series-y-col, .series-std-col, .series-lbl-col').forEach(sel => {
+
+    // 收集所有系列已选中的 Y 值列
+    const allYSelects = Array.from(document.querySelectorAll('.series-y-col'));
+    const selectedYCols = allYSelects.map(sel => sel.value).filter(v => v);
+
+    // 更新所有系列的 Y 值列选择器：排除 X 轴列 + 其他系列已选的 Y 列
+    allYSelects.forEach((sel, idx) => {
         const cur = sel.value;
-        sel.innerHTML = '<option value="">-- 无 --</option>' + getColumnOptions(cur);
+        const otherSelected = selectedYCols.filter((v, i) => i !== idx);
+        const exclude = [xColVal, ...otherSelected].filter(v => v);
+        sel.innerHTML = '<option value="">-- 无 --</option>' + getColumnOptions(cur, exclude);
+        sel.value = cur;
+    });
+
+    // 标准差列和标签列：排除 X 轴列
+    const excludeForOthers = xColVal ? [xColVal] : [];
+    document.querySelectorAll('.series-std-col, .series-lbl-col').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">-- 无 --</option>' + getColumnOptions(cur, excludeForOthers);
+        sel.value = cur;
+    });
+
+    // 雷达图数据列也排除 X 轴
+    document.querySelectorAll('.series-data-col').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">-- 无 --</option>' + getColumnOptions(cur, excludeForOthers);
+        sel.value = cur;
     });
 }
 
@@ -1166,8 +1204,18 @@ function addSeries() {
     });
     row.querySelector('.remove-series').addEventListener('click', () => {
         row.remove();
+        refreshPlotColumnSelectors();
     });
+
+    // Y 值列变化时刷新所有系列的可选列（排除已选）
+    const yColSel = row.querySelector('.series-y-col');
+    if (yColSel) {
+        yColSel.addEventListener('change', refreshPlotColumnSelectors);
+    }
+
     container.appendChild(row);
+    // 新增系列后立即刷新，排除 X 轴列
+    refreshPlotColumnSelectors();
 }
 
 async function generatePlot() {
@@ -1510,7 +1558,7 @@ async function generatePlot() {
             x_label: document.getElementById('plotXLabel').value,
             y_label: document.getElementById('plotYLabel').value,
             show_grid: document.getElementById('showGridLines')?.checked || false,
-            bar_inner_gap: parseFloat(document.getElementById('barGroupSpacingVal')?.value) || 0.9,
+            bar_gap: parseFloat(document.getElementById('barGapVal')?.value) ?? 0.3,
             bold: boldConfig,
             font_sizes: {
                 title:      parseInt(document.getElementById('fsTitleSize')?.value) || 14,
@@ -1698,6 +1746,7 @@ function bindSVGInteractions(svgEl) {
     const legendEl = svgEl.querySelector('g[id^="legend"]');
     if (legendEl) {
         makeSVGDraggable(legendEl, svgEl);
+        addResizeHandles(legendEl, svgEl);
     }
 
     // 2. 找所有 text_N 组
@@ -1799,9 +1848,7 @@ function makeSVGDraggable(el, svgEl) {
         document.addEventListener('mouseup', onUp);
     });
 
-    // 滚轮缩放：调整元素内所有字形的 scale
-    // matplotlib SVG 中文字是 <g transform="translate(x y) scale(0.1 -0.1)"> 结构
-    // 我们通过修改外层 g 的 scale 来缩放整个标签/图例
+    // 滚轮缩放（仅对非图例元素生效，图例用角点拖拽缩放）
     el.addEventListener('wheel', e => {
         e.preventDefault();
         e.stopPropagation();
@@ -1834,4 +1881,167 @@ function makeSVGDraggable(el, svgEl) {
             }
         }
     }, { passive: false });
+}
+
+// ─── 图例角点缩放手柄 ────────────────────────────────────────────────────────────
+// 在图例四角绘制可拖拽的小方块，拖动角点时对图例整体进行 scale 变换
+
+function addResizeHandles(legendEl, svgEl) {
+    const HANDLE_SIZE = 8;  // 手柄边长（SVG 用户单位）
+    const HANDLE_COLOR = '#0ea5e9';
+    const HANDLE_STROKE = '#0369a1';
+
+    // 当前缩放倍数（相对于初始状态）
+    let currentScale = 1.0;
+
+    // 创建手柄组，附加到 SVG 根（不受 legendEl transform 影响）
+    const handleGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    handleGroup.setAttribute('id', '__legend_resize_handles__');
+    svgEl.appendChild(handleGroup);
+
+    // 四个角：'se'=右下, 'sw'=左下, 'ne'=右上, 'nw'=左上
+    const corners = ['se', 'sw', 'ne', 'nw'];
+    const handles = {};
+    corners.forEach(corner => {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('width', HANDLE_SIZE);
+        rect.setAttribute('height', HANDLE_SIZE);
+        rect.setAttribute('fill', HANDLE_COLOR);
+        rect.setAttribute('stroke', HANDLE_STROKE);
+        rect.setAttribute('stroke-width', '1');
+        rect.setAttribute('rx', '2');
+        rect.style.cursor = corner === 'se' || corner === 'nw' ? 'nwse-resize' : 'nesw-resize';
+        handleGroup.appendChild(rect);
+        handles[corner] = rect;
+    });
+
+    // 获取图例在 SVG 坐标系中的边界框（考虑 transform）
+    function getLegendBBox() {
+        try {
+            // getBoundingClientRect 转 SVG 坐标
+            const cr = legendEl.getBoundingClientRect();
+            const ctm = svgEl.getScreenCTM().inverse();
+
+            const toSVG = (cx, cy) => {
+                const pt = svgEl.createSVGPoint();
+                pt.x = cx; pt.y = cy;
+                return pt.matrixTransform(ctm);
+            };
+
+            const tl = toSVG(cr.left, cr.top);
+            const br = toSVG(cr.right, cr.bottom);
+            return { x: tl.x, y: tl.y, width: br.x - tl.x, height: br.y - tl.y };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // 更新手柄位置到图例四角
+    function updateHandlePositions() {
+        const bb = getLegendBBox();
+        if (!bb || bb.width <= 0 || bb.height <= 0) {
+            handleGroup.style.display = 'none';
+            return;
+        }
+        handleGroup.style.display = '';
+        const hs = HANDLE_SIZE;
+        const { x, y, width, height } = bb;
+        const positions = {
+            nw: { x: x - hs / 2,         y: y - hs / 2 },
+            ne: { x: x + width - hs / 2,  y: y - hs / 2 },
+            sw: { x: x - hs / 2,         y: y + height - hs / 2 },
+            se: { x: x + width - hs / 2,  y: y + height - hs / 2 },
+        };
+        corners.forEach(c => {
+            handles[c].setAttribute('x', positions[c].x);
+            handles[c].setAttribute('y', positions[c].y);
+        });
+    }
+
+    // 对图例应用 scale 变换（以图例中心为原点）
+    function applyScale(newScale) {
+        const bb = getLegendBBox();
+        if (!bb) return;
+
+        // 图例中心（SVG 坐标）
+        const cx = bb.x + bb.width / 2;
+        const cy = bb.y + bb.height / 2;
+
+        // 读取当前 transform
+        const existing = el => (el.getAttribute('transform') || '');
+        const t = existing(legendEl);
+
+        // 移除旧的 __resize_scale__ 标记（用特殊注释区分）
+        const cleanT = t.replace(/\s*__rs__scale\([^)]*\)/g, '').trim();
+
+        // translate(cx cy) scale(s) translate(-cx -cy) 实现以中心缩放
+        const scaleTransform = `translate(${cx} ${cy}) scale(${newScale / currentScale}) translate(${-cx} ${-cy})`;
+
+        // 将新 scale 叠加到现有 transform 前面
+        legendEl.setAttribute('transform', `${scaleTransform} ${cleanT}`);
+        currentScale = newScale;
+
+        updateHandlePositions();
+    }
+
+    // 绑定每个角点的拖拽缩放
+    corners.forEach(corner => {
+        const handle = handles[corner];
+
+        handle.addEventListener('mousedown', e => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const bb0 = getLegendBBox();
+            if (!bb0) return;
+
+            // 记录拖拽起点（SVG 坐标）
+            const ctm = svgEl.getScreenCTM().inverse();
+            const toSVG = (cx, cy) => {
+                const pt = svgEl.createSVGPoint();
+                pt.x = cx; pt.y = cy;
+                return pt.matrixTransform(ctm);
+            };
+
+            const startPt = toSVG(e.clientX, e.clientY);
+            const startScale = currentScale;
+
+            // 以图例中心为参考，计算起始距离
+            const cx0 = bb0.x + bb0.width / 2;
+            const cy0 = bb0.y + bb0.height / 2;
+            const startDist = Math.sqrt(
+                Math.pow(startPt.x - cx0, 2) + Math.pow(startPt.y - cy0, 2)
+            );
+
+            handle.style.fill = '#f97316';  // 拖拽中变色
+
+            const onMove = ev => {
+                const curPt = toSVG(ev.clientX, ev.clientY);
+                const curDist = Math.sqrt(
+                    Math.pow(curPt.x - cx0, 2) + Math.pow(curPt.y - cy0, 2)
+                );
+                if (startDist < 1) return;
+                const ratio = curDist / startDist;
+                const newScale = Math.max(0.2, Math.min(5.0, startScale * ratio));
+                applyScale(newScale);
+            };
+
+            const onUp = () => {
+                handle.style.fill = HANDLE_COLOR;
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    });
+
+    // 初始定位
+    requestAnimationFrame(updateHandlePositions);
+
+    // 图例拖动后也要更新手柄位置：监听 legendEl 的 transform 变化
+    const observer = new MutationObserver(updateHandlePositions);
+    observer.observe(legendEl, { attributes: true, attributeFilter: ['transform'] });
 }
