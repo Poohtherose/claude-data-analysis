@@ -25,23 +25,25 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 import json as _json
+from flask.json.provider import DefaultJSONProvider
 
-class _NaNSafeEncoder(_json.JSONEncoder):
-    def iterencode(self, o, _one_shot=False):
-        return super().iterencode(self._sanitize(o), _one_shot)
-
-    def _sanitize(self, obj):
-        if isinstance(obj, float):
-            if np.isnan(obj) or np.isinf(obj):
-                return None
-            return obj
-        if isinstance(obj, dict):
-            return {k: self._sanitize(v) for k, v in obj.items()}
-        if isinstance(obj, (list, tuple)):
-            return [self._sanitize(v) for v in obj]
+def _sanitize_nan(obj):
+    if isinstance(obj, float):
+        if obj != obj or obj == float('inf') or obj == float('-inf'):  # nan/inf check
+            return None
         return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_nan(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_nan(v) for v in obj]
+    return obj
 
-app.json_encoder = _NaNSafeEncoder
+class _NaNSafeJSONProvider(DefaultJSONProvider):
+    def dumps(self, obj, **kwargs):
+        return super().dumps(_sanitize_nan(obj), **kwargs)
+
+app.json_provider_class = _NaNSafeJSONProvider
+app.json = _NaNSafeJSONProvider(app)
 
 ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
 
@@ -975,7 +977,8 @@ def get_columns():
             })
 
         def df_to_json_safe(frame):
-            return frame.where(frame.notna(), other=None).to_dict(orient='records')
+            records = frame.to_dict(orient='records')
+            return _sanitize_nan(records)
 
         return jsonify({
             'columns': columns_str,
@@ -1141,12 +1144,15 @@ def make_bar_chart(config):
 
     # 图形尺寸（高分辨率）
     fig_w = max(8, n_groups * n_series * 0.6 + 3)
-    fig, ax = plt.subplots(figsize=(fig_w, 6), dpi=150)
+    fig, ax = plt.subplots(figsize=(fig_w, 7), dpi=300)
 
-    group_spacing = float(config.get('bar_group_spacing', 0.3))
-    bar_width = (1.0 - group_spacing) / n_series if n_series > 0 else 0.7
-    bar_width = min(bar_width, 0.9 / n_series)
-    bar_fill = float(config.get('bar_inner_gap', 0.9))  # 组内填充比，越小间隙越大
+    # bar_gap: 0=柱子完全贴合, 1=最大间距
+    # bar_gap 控制组间空白占每个槽位的比例
+    bar_gap = float(config.get('bar_gap', 0.3))
+    bar_gap = max(0.0, min(0.95, bar_gap))  # 限制范围，避免宽度为0
+    # 每个组槽宽度为1，bar_gap 是空白比例，剩余给所有系列的柱子
+    total_bar_width = (1.0 - bar_gap)  # 所有系列柱子总宽
+    bar_width = total_bar_width / n_series if n_series > 0 else total_bar_width
     x_pos = np.arange(n_groups)
 
     for si, ycol in enumerate(y_cols):
@@ -1160,7 +1166,7 @@ def make_bar_chart(config):
 
         bars = ax.bar(
             x_pos + offset, y_vals,
-            width=bar_width * bar_fill,
+            width=bar_width,
             color=bar_colors[si],
             label=strip_stat_suffix(ycol),
             edgecolor='black',
@@ -1271,17 +1277,17 @@ def make_bar_chart(config):
         ax.yaxis.grid(True, linestyle='--', alpha=0.4, zorder=0)
         ax.set_axisbelow(True)
 
-    plt.tight_layout(pad=2.5)
+    plt.tight_layout(pad=4.0)
 
-    # 输出 PNG (base64)
+    # 输出 PNG (base64) - 4K 清晰度
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0.5)
+    fig.savefig(buf, format='png', dpi=300, bbox_inches='tight', pad_inches=1.2)
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
 
     # 输出 SVG (base64) 用于前端交互编辑
     svg_buf = io.BytesIO()
-    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=0.5)
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=1.2)
     svg_buf.seek(0)
     svg_b64 = base64.b64encode(svg_buf.read()).decode('utf-8')
 
@@ -1380,7 +1386,7 @@ def make_line_chart(config):
 
     # 图形尺寸
     fig_w = max(8, n_groups * 0.8 + 3)
-    fig, ax = plt.subplots(figsize=(fig_w, 6), dpi=150)
+    fig, ax = plt.subplots(figsize=(fig_w, 7), dpi=300)
 
     # 转换 x 轴为数值（如果可能）
     try:
@@ -1515,17 +1521,17 @@ def make_line_chart(config):
         ax.yaxis.grid(True, linestyle='--', alpha=0.4, zorder=0)
         ax.set_axisbelow(True)
 
-    plt.tight_layout(pad=2.5)
+    plt.tight_layout(pad=4.0)
 
-    # 输出 PNG (base64)
+    # 输出 PNG (base64) - 4K 清晰度
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', pad_inches=0.5)
+    fig.savefig(buf, format='png', dpi=300, bbox_inches='tight', pad_inches=1.2)
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
 
     # 输出 SVG (base64) 用于前端交互编辑
     svg_buf = io.BytesIO()
-    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=0.5)
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight', pad_inches=1.2)
     svg_buf.seek(0)
     svg_b64 = base64.b64encode(svg_buf.read()).decode('utf-8')
 
